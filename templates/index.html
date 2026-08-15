@@ -15,18 +15,9 @@
     <link rel="stylesheet" href="{% static 'assets/css/navbar.css' %}" />
     <link rel="stylesheet" href="{% static 'assets/css/z1.css' %}" />
     <link rel="stylesheet" href="{% static 'assets/css/z2.css' %}" />
+    <link rel="stylesheet" href="{% static 'assets/css/toast.css' %}" />
 
     <style>
-      /* Font chung */
-      html,
-      body,
-      button,
-      input,
-      textarea,
-      select {
-        font-family: "Dinosaur", sans-serif;
-      }
-
       /* Tối ưu style hover & responsive */
       .navbar_top-link {
         color: var(--base-color-brand--grey3);
@@ -81,16 +72,21 @@
                           <div class="margin-bottom margin-xhuge">
                             <div class="margin-bottom margin-custom1">
                               <p class="heading-style-h1 text-color-blue">
-                                Join the Groups
+                                Join the Group
                               </p>
                             </div>
                             <p class="hero_content-paragraph">
-                              Tham gia để nhận tin tức về chúng tôi, quyền truy
-                              cập sớm vào nội dung cũng như các cập nhật mới.
+                              Tham gia cộng đồng QHUN22 trên Zalo để nhận thông
+                              tin mới nhất, cập nhật nội dung và hỗ trợ nhanh
+                              chóng từ nhóm.
                             </p>
                           </div>
                           <div class="text-align-center-mobile">
-                            <a href="/pocoyo-club" class="hero_button w-button"
+                            <a
+                              href="https://zalo.me/g/wkcngh456"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="hero_button w-button"
                               >Tham gia!</a
                             >
                           </div>
@@ -303,6 +299,22 @@
     <!-- SCRIPT LIBRARIES -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+    {% if messages %}
+    <script>
+      window.__TOAST_FLASH__ = [
+        {% for message in messages %}
+        {
+          type: "{{ message.tags|default:'info' }}",
+          title: {% if message.level_tag == 'error' %}"Lỗi"{% elif message.level_tag == 'success' %}"Thành công"{% elif message.level_tag == 'warning' %}"Cảnh báo"{% else %}"Thông tin"{% endif %},
+          message: "{{ message|escapejs }}",
+          duration_ms: 5000
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+      ];
+    </script>
+    {% endif %}
+
+    <script src="{% static 'assets/js/toast.js' %}"></script>
     <script src="{% static 'assets/js/z1.js' %}"></script>
     <script src="{% static 'assets/js/z2.js' %}"></script>
   </body>

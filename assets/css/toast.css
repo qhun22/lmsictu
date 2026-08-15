@@ -10,15 +10,15 @@
 /* ----- Container ---------------------------------------------------- */
 .toast-stack {
     position: fixed;
-    top: 24px;
-    right: 24px;
+    top: 18px;
+    right: 18px;
     z-index: 9999;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    pointer-events: none; /* để click xuyên qua khi không có toast */
-    max-width: calc(100vw - 48px);
-    width: 360px;
+    gap: 10px;
+    pointer-events: none;
+    max-width: min(300px, calc(100vw - 24px));
+    width: 300px;
 }
 .toast-stack > .toast { pointer-events: auto; }
 
@@ -28,6 +28,7 @@
         right: 12px;
         left: 12px;
         width: auto;
+        max-width: calc(100vw - 24px);
     }
 }
 
@@ -36,16 +37,16 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 14px 16px 18px;
+    gap: 5px;
+    padding: 10px 12px 14px;
     background: #ffffff;
     color: #1f2937;
-    border-radius: 12px;
+    border-radius: 10px;
     box-shadow:
-        0 10px 25px -5px rgba(0, 0, 0, 0.15),
-        0 8px 10px -6px rgba(0, 0, 0, 0.08);
+        0 8px 18px -6px rgba(0, 0, 0, 0.18),
+        0 4px 8px -4px rgba(0, 0, 0, 0.12);
     overflow: hidden;
-    border-left: 5px solid #6b7280; /* mặc định; type sẽ override */
+    border-left: 4px solid #6b7280;
     transform: translateX(120%);
     opacity: 0;
     transition:
@@ -139,21 +140,33 @@
 }
 
 /* ----- Type variants ----------------------------------------------- */
-.toast--success { border-left-color: #10b981; color: #047857; }
+.toast--general,
+.toast--success,
+.toast--error,
+.toast--warning,
+.toast--info {
+    border-left-color: #00abff;
+    color: #1f5381;
+}
 .toast--success .toast__progress { background: #10b981; }
 .toast--success .toast__title   { color: #065f46; }
+.toast--success .toast__message { color: #375a53; }
 
-.toast--error   { border-left-color: #ef4444; color: #b91c1c; }
-.toast--error   .toast__progress { background: #ef4444; }
-.toast--error   .toast__title   { color: #991b1b; }
+.toast--error .toast__progress { background: #ef4444; }
+.toast--error .toast__title   { color: #991b1b; }
+.toast--error .toast__message { color: #7f1d1d; }
 
-.toast--warning { border-left-color: #f59e0b; color: #b45309; }
 .toast--warning .toast__progress { background: #f59e0b; }
 .toast--warning .toast__title   { color: #92400e; }
+.toast--warning .toast__message { color: #78350f; }
 
-.toast--info    { border-left-color: #3b82f6; color: #1d4ed8; }
-.toast--info    .toast__progress { background: #3b82f6; }
-.toast--info    .toast__title   { color: #1e40af; }
+.toast--info .toast__progress { background: #00abff; }
+.toast--info .toast__title   { color: #1f5381; }
+.toast--info .toast__message { color: #4a5568; }
+
+.toast--general .toast__progress { background: #00abff; }
+.toast--general .toast__title   { color: #1f5381; }
+.toast--general .toast__message { color: #4a5568; }
 
 /* ----- Reduced motion ---------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {

@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const navbar = document.getElementById(config.navbarId);
-  const menuToggle = document.querySelector(`[${config.menuToggleAttr}]`);
+  const menuToggles = document.querySelectorAll('[data-menu-role]');
   const overlay = document.querySelector(`.${config.overlayClass}`);
   const closeBtn = document.querySelector(`.${config.closeBtnClass}`);
   const menuContent = document.querySelector(`.${config.menuContentClass}`);
@@ -81,21 +81,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Bật/tắt class .is-active để xoay icon Hamburger thành dấu X
-    if (menuToggle) {
-      menuToggle.classList.toggle('is-active', isMenuOpen);
-    }
+    menuToggles.forEach((toggle) => {
+      toggle.classList.toggle('is-active', isMenuOpen);
+    });
 
     // Khóa hoặc mở lại cuộn trang
     document.body.style.overflow = isMenuOpen ? 'hidden' : '';
   }
 
   // 1. Click nút Hamburger để Toggle (Mở / Đóng)
-  if (menuToggle) {
-    menuToggle.addEventListener('click', (e) => {
+  menuToggles.forEach((toggle) => {
+    toggle.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleMenu();
     });
-  }
+  });
 
   // 2. Click nút Close (X) nếu có
   if (closeBtn) {

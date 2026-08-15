@@ -16,17 +16,11 @@ page_title }}{% endblock %} {% block extra_css %}
       <p class="auth__subtitle">Đăng nhập để tiếp tục sử dụng.</p>
     </header>
 
-    <div
-      class="auth__alert js-auth-alert"
-      role="alert"
-      aria-live="polite"
-    ></div>
-
     <form
       id="login-form"
       class="auth__form js-auth-form"
       data-auth-type="login"
-      data-auth-ajax="false"
+      data-auth-ajax="true"
       action="{% url 'login' %}"
       method="post"
       novalidate
@@ -69,6 +63,7 @@ page_title }}{% endblock %} {% block extra_css %}
             aria-pressed="false"
             title="Hiện mật khẩu"
             data-target="password"
+            tabindex="-1"
           >
             <svg
               data-icon="eye"

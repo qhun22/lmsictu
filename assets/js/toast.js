@@ -26,12 +26,13 @@
        1. CONFIG
        ============================================================ */
     var DEFAULT_DURATION = {
-        success: 3500,
+        success: 5000,
         error:   5000,
-        warning: 4500,
-        info:    4000
+        warning: 5000,
+        info:    5000,
+        general: 5000
     };
-    var ALLOWED_TYPES = ['success', 'error', 'warning', 'info'];
+    var ALLOWED_TYPES = ['success', 'error', 'warning', 'info', 'general'];
 
     /* ============================================================
        2. ICONS (SVG inline - không phụ thuộc icon font)
@@ -88,24 +89,24 @@
      * Tạo 1 element toast, set countdown + progress, return ref.
      */
     function createToast(opts) {
-        var type = (ALLOWED_TYPES.indexOf(opts.type) >= 0) ? opts.type : 'info';
-        var title = opts.title || '';
+        var type = (ALLOWED_TYPES.indexOf(opts.type) >= 0) ? opts.type : 'general';
+        var title = opts.title || 'Thông báo';
         var message = opts.message || '';
 
         // duration: -1 = không tự đóng; 0 = mặc định; >0 = custom
         var duration;
         if (opts.duration === -1) {
             duration = -1;
-        } else if (opts.duration && opts.duration > 0) {
+        } else if (typeof opts.duration === 'number' && opts.duration > 0) {
             duration = opts.duration;
         } else {
-            duration = DEFAULT_DURATION[type];
+            duration = DEFAULT_DURATION[type] || DEFAULT_DURATION.general || 5000;
         }
 
         var el = document.createElement('div');
         el.className = 'toast toast--' + type;
-        el.setAttribute('role', type === 'error' ? 'alert' : 'status');
-        el.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+        el.setAttribute('role', 'status');
+        el.setAttribute('aria-live', 'polite');
         el.dataset.toastId = String(++counter);
 
         // Header
@@ -152,12 +153,11 @@
         getStack().appendChild(el);
 
         // ---- Countdown & progress ----------------------------------
-        var remaining   = duration;        // ms còn lại
-        var startedAt   = Date.now();
-        var elapsedBeforePause = 0;         // tổng elapsed trước khi pause
-        var pausedAt    = null;
-        var rafId       = null;
-        var closed      = false;
+        var remaining = duration;
+        var total = duration;
+        var pausedAt = null;
+        var rafId = null;
+        var closed = false;
 
         function close() {
             if (closed) return;
@@ -165,52 +165,55 @@
             if (rafId) cancelAnimationFrame(rafId);
             el.classList.remove('is-visible');
             el.classList.add('is-leaving');
-            // Xoá khỏi DOM sau khi animation kết thúc
             var doneTimer = setTimeout(function () {
                 if (el.parentNode) el.parentNode.removeChild(el);
             }, 350);
-            // Nếu transition bị disable (prefers-reduced-motion) → vẫn xoá
             setTimeout(function () { clearTimeout(doneTimer); el.parentNode && el.parentNode.removeChild(el); }, 400);
         }
 
-        function tick() {
-            if (closed) return;
-            var now = Date.now();
-            var delta = now - startedAt - elapsedBeforePause;
-            var left = Math.max(0, remaining - delta);
+        function tick(now) {
+            if (closed || duration === -1) return;
 
-            // Cập nhật progress bar
-            if (remaining > 0) {
-                var pct = Math.max(0, Math.min(1, left / remaining));
-                progress.style.transform = 'scaleX(' + pct + ')';
-            } else {
-                progress.style.transform = 'scaleX(1)';
+            if (pausedAt !== null) {
+                rafId = requestAnimationFrame(tick);
+                return;
             }
 
-            if (remaining > 0 && left <= 0) {
+            if (!tick.lastTime) {
+                tick.lastTime = now;
+            }
+
+            var delta = now - tick.lastTime;
+            tick.lastTime = now;
+            remaining = Math.max(0, remaining - delta);
+
+            if (total > 0) {
+                var pct = Math.max(0, Math.min(1, remaining / total));
+                progress.style.transform = 'scaleX(' + pct + ')';
+            }
+
+            if (remaining <= 0) {
                 close();
                 return;
             }
+
             rafId = requestAnimationFrame(tick);
         }
 
-        // Hover pause / resume
         function onMouseEnter() {
-            if (closed) return;
+            if (closed || duration === -1) return;
             if (pausedAt !== null) return;
-            if (rafId) cancelAnimationFrame(rafId);
-            pausedAt = Date.now();
-            elapsedBeforePause += pausedAt - startedAt - elapsedBeforePause;
-            // Dừng progress bar ở vị trí hiện tại - KHÔNG update transform nữa
+            pausedAt = performance.now();
             el.classList.add('is-paused');
+            if (rafId) cancelAnimationFrame(rafId);
         }
+
         function onMouseLeave() {
-            if (closed) return;
+            if (closed || duration === -1) return;
             if (pausedAt === null) return;
-            var pauseDuration = Date.now() - pausedAt;
+            var pauseMs = performance.now() - pausedAt;
             pausedAt = null;
-            startedAt += pauseDuration; // đẩy 'startedAt' về phía trước để delta không nhảy
-            elapsedBeforePause = 0;
+            tick.lastTime = performance.now() - pauseMs;
             el.classList.remove('is-paused');
             rafId = requestAnimationFrame(tick);
         }
@@ -219,13 +222,14 @@
         el.addEventListener('mouseleave', onMouseLeave);
         closeBtn.addEventListener('click', function () { close(); });
 
-        // Kích hoạt animation slide-in (1 frame sau khi insert)
         requestAnimationFrame(function () {
             el.classList.add('is-visible');
         });
 
-        // Bắt đầu đếm ngược
-        rafId = requestAnimationFrame(tick);
+        if (duration !== -1) {
+            tick.lastTime = performance.now();
+            rafId = requestAnimationFrame(tick);
+        }
 
         return { element: el, close: close };
     }

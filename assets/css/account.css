@@ -265,9 +265,9 @@ main.auth {
 }
 
 .auth__form-row {
-  /* Hàng 2 cột cho register page (desktop) */
+  /* Register form xếp dọc theo kiểu 1 cột, đúng với thiết kế yêu cầu */
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 1rem;
 }
 
@@ -320,11 +320,11 @@ main.auth {
 }
 
 .auth__input--error {
-  border-color: var(--pocoyo-error);
+  border-color: var(--pocoyo-input-border);
 }
 
 .auth__input--error:focus {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+  box-shadow: none;
 }
 
 /* Nút toggle hiển thị mật khẩu (mắt) */
@@ -368,10 +368,11 @@ main.auth {
 
 /* Thông báo lỗi dưới input */
 .auth__error-message {
+  display: none !important;
   font-size: 0.8125rem;
   color: var(--pocoyo-error);
   margin: 0;
-  min-height: 1.1em;
+  min-height: 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -512,37 +513,7 @@ main.auth {
 }
 
 /* --------------------------------------------------------------------------
-   10. ALERT / STATUS MESSAGE
-   -------------------------------------------------------------------------- */
-.auth__alert {
-  display: none;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.85rem 1rem;
-  border-radius: var(--pocoyo-radius-input);
-  font-size: 0.875rem;
-  line-height: 1.4;
-  margin-bottom: 0.5rem;
-}
-
-.auth__alert--visible {
-  display: flex;
-}
-
-.auth__alert--success {
-  background-color: rgba(16, 185, 129, 0.1);
-  color: var(--pocoyo-success);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.auth__alert--error {
-  background-color: rgba(239, 68, 68, 0.1);
-  color: var(--pocoyo-error);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-/* --------------------------------------------------------------------------
-   11. RESPONSIVE (MOBILE / TABLET)
+   10. RESPONSIVE (MOBILE / TABLET)
    -------------------------------------------------------------------------- */
 
 /* Tablet & nhỏ hơn: card full width */

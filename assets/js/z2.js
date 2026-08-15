@@ -51,4 +51,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initLottie();
   initSwipers();
+
+  // 3. Toast "Sắp ra mắt" khi click vào 5 box bento (chưa hoàn thiện chức năng)
+  document.querySelectorAll('.bento_episodes-wrapper, .bento_songs-wrapper, .bento_apps-wrapper, .bento_tales-wrapper, .bento_crafts-wrapper').forEach(function (box) {
+    box.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var titleEl = box.querySelector('[class*="bento_"][class*="-title"]');
+      var name = titleEl ? titleEl.textContent.trim() : 'Tính năng';
+      if (typeof window.showToast === 'function') {
+        window.showToast({
+          type: 'info',
+          title: 'Comingsoon',
+          message: name + ' đang được phát triển. Vui lòng quay lại sau nhé!',
+          duration: 3000
+        });
+      }
+    });
+  });
 });

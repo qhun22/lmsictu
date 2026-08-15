@@ -324,14 +324,14 @@
 
 /* Typo Tiêu đề 5 Box */
 .bento_episodes-title { color: #00abff; font-size: 7.5rem; font-weight: 900; text-transform: uppercase; line-height: 0.8; z-index: 2; }
-.bento_songs-title { color: #ff4ab0; font-size: 6.5rem; font-weight: 900; text-transform: uppercase; line-height: 0.8; z-index: 2; }
+.bento_songs-title { color: #ff4ab0; font-size: 6.5rem; font-weight: 900; text-transform: uppercase; line-height: 0.8; z-index: 2; text-align: right; align-self: flex-end; }
 .bento_apps-title { color: #21bf55; font-size: 3.5rem; font-weight: 900; text-transform: uppercase; line-height: 0.9; z-index: 2; }
 .bento_tales-title { color: #ff8700; font-size: 3.5rem; font-weight: 900; text-transform: uppercase; line-height: 0.8; z-index: 2; text-align: right; }
 .bento_crafts-title { color: #fc0; font-size: 4.5rem; font-weight: 900; text-transform: uppercase; text-align: center; line-height: 1; z-index: 2; }
 
 /* Kích thước & Vị trí Ảnh Minh Họa */
 .bento_episodes-illu { position: absolute; bottom: 0; left: 80px; max-height: 380px; pointer-events: none; }
-.bento_songs-illu { position: absolute; bottom: 0; right: 0; max-height: 420px; pointer-events: none; }
+.bento_songs-illu { position: absolute; bottom: 0; left: 0; max-height: 420px; pointer-events: none; }
 .bento_apps-illu { position: absolute; bottom: 0; right: 0; max-height: 190px; pointer-events: none; }
 
 /* 🌟 FIX CHỒNG SÁCH TALES: Phồng to dính sát lề trái chuẩn 100% gốc */
@@ -350,7 +350,7 @@
 
 /* Màu nút bấm mặc định */
 .bento_episodes-wrapper .main_button { background-color: #00abff; color: #fff; z-index: 2; }
-.bento_songs-wrapper .main_button { background-color: #ff4ab0; color: #fff; z-index: 2; }
+.bento_songs-wrapper .main_button { background-color: #ff4ab0; color: #fff; z-index: 2; align-self: flex-end; }
 .bento_apps-wrapper .main_button { background-color: #21bf55; color: #fff; z-index: 2; }
 .bento_tales-wrapper .main_button { background-color: #ff8700; color: #fff; z-index: 2; }
 .bento_crafts-wrapper .main_button { background-color: #fc0; color: #fff; z-index: 2; }
@@ -422,22 +422,50 @@
 }
 
 .form_input-wrapper { display: flex; align-items: center; height: 72px; padding: 1.5rem; border: 1px solid var(--base-color-brand--blue); border-radius: 1rem; gap: 1rem; }
-.form_input { width: 100%; border: none; background: transparent; font-size: 1.5rem; color: var(--base-color-brand--blue); }
+.form_input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  color: var(--base-color-brand--blue);
+  outline: none;
+}
+.form_input:focus { outline: none; box-shadow: none; }
+.form_input:focus-visible { outline: none; box-shadow: none; }
+/* Bỏ background vàng của Chrome autofill */
+.form_input:-webkit-autofill,
+.form_input:-webkit-autofill:hover,
+.form_input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--white) inset !important;
+  -webkit-text-fill-color: var(--base-color-brand--blue) !important;
+  transition: background-color 5000s ease-in-out 0s;
+  caret-color: var(--base-color-brand--blue);
+}
 .form_input::placeholder { color: rgba(0, 186, 48, 0.4); }
 
 /* Kiểu dáng ô Textarea Feedback */
 .form_input-wrapper.is-textarea {
   height: auto;
-  min-height: 120px;
-  align-items: flex-start;
+  min-height: 220px;
+  align-items: stretch;
   padding: 1rem 1.5rem;
 }
 
 .form_textarea {
   resize: vertical;
-  min-height: 90px;
+  min-height: 200px;
   outline: none;
   font-family: inherit;
+  field-sizing: content; /* auto-grow theo nội dung (Chrome 123+) */
+}
+.form_textarea:focus { outline: none; box-shadow: none; }
+.form_textarea:focus-visible { outline: none; box-shadow: none; }
+.form_textarea:-webkit-autofill,
+.form_textarea:-webkit-autofill:hover,
+.form_textarea:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--white) inset !important;
+  -webkit-text-fill-color: var(--base-color-brand--blue) !important;
+  caret-color: var(--base-color-brand--blue);
 }
 
 /* Icon bong bóng Chat cho ô Feedback */
@@ -508,4 +536,203 @@
   }
   .footer_bottom-bar { padding: 1rem 0; }
   .footer_copyright { font-size: 0.85rem; }
+
+  /* === Slide "Join the Groups" – mobile only === */
+  .hero_slider-content {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 1.5rem !important;
+    align-items: stretch;
+    border-radius: 1.25rem;
+  }
+
+  /* Ẩn hoàn toàn ảnh con chim trên mobile */
+  .hero_slider-image-wrapper {
+    display: none !important;
+  }
+
+  /* Bỏ ép 1 hàng + cỡ chữ lớn ở desktop, cho mobile tự wrap */
+  .hero_slider-content-wrapper .heading-style-h1 {
+    font-size: 1.75rem !important;
+    line-height: 1.15;
+    white-space: normal !important;
+    word-break: break-word;
+  }
+
+  .hero_slider-content-wrapper {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    gap: 0.75rem;
+  }
+
+  .hero_slider-content-wrapper .margin-bottom.margin-xhuge {
+    margin-bottom: 0 !important;
+  }
+
+  .hero_slider-content-wrapper .hero_content-paragraph {
+    font-size: 0.95rem;
+    line-height: 1.45;
+    margin-top: 0 !important;
+  }
+
+  /* Nút "Tham gia!" – 1 dòng, vừa màn hình */
+  .hero_button,
+  .text-align-center-mobile .hero_button {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap !important;
+    width: auto !important;
+    min-width: 140px;
+    padding: 0.75rem 1.5rem !important;
+    font-size: 1rem !important;
+    margin: 0.5rem auto 0;
+  }
+
+  .text-align-center-mobile {
+    text-align: center;
+    width: 100%;
+  }
+
+  /* === Fix Swiper hiển thị 2 slide cùng lúc trên mobile === */
+  .hero_component {
+    overflow: hidden;
+  }
+  .hero_wrapper {
+    flex-wrap: nowrap;
+  }
+  .hero_wrapper > .swiper-slide {
+    flex: 0 0 100%;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* === Title "Welcome to the world of qhun22!" – mobile === */
+  .hero_title-wrapper .heading-style-h1 {
+    font-size: 1.6rem !important;
+    line-height: 1.2;
+    white-space: normal !important;
+    word-break: break-word;
+    text-align: center;
+  }
+
+  /* === Bento Grid – mobile only === */
+  /* Card padding + height */
+  .bento_episodes-wrapper,
+  .bento_songs-wrapper,
+  .bento_apps-wrapper,
+  .bento_tales-wrapper,
+  .bento_crafts-wrapper {
+    padding: 1.25rem !important;
+    border-radius: 18px;
+  }
+  .bento_episodes-wrapper,
+  .bento_songs-wrapper { height: 320px !important; }
+  .bento_apps-wrapper,
+  .bento_tales-wrapper { height: 200px !important; }
+  .bento_crafts-wrapper { height: 320px !important; }
+
+  /* Title sizes (mobile) */
+  .bento_episodes-title {
+    font-size: 2.2rem !important;
+    line-height: 1;
+  }
+  .bento_songs-title {
+    font-size: 2.2rem !important;
+    line-height: 1;
+  }
+  .bento_apps-title {
+    font-size: 1.5rem !important;
+    line-height: 1;
+  }
+  .bento_tales-title {
+    font-size: 1.5rem !important;
+    line-height: 1;
+    text-align: left;
+  }
+  .bento_crafts-title {
+    font-size: 1.75rem !important;
+    line-height: 1;
+    text-align: center;
+  }
+
+  /* Illu positions (mobile) */
+  .bento_episodes-illu {
+    left: 50% !important;
+    transform: translateX(-50%);
+    max-height: 220px !important;
+  }
+  .bento_songs-illu {
+    left: -10px !important;
+    max-height: 220px !important;
+  }
+  .bento_apps-illu {
+    right: -10px !important;
+    max-height: 140px !important;
+  }
+  .bento_tales-illu {
+    left: -10px !important;
+    max-height: 180px !important;
+    height: auto !important;
+  }
+  .bento_crafts-illu { inset: 0 !important; }
+
+  /* Main button trong bento – mobile: thu nhỏ, gọn */
+  .bento_episodes-wrapper .main_button,
+  .bento_songs-wrapper .main_button,
+  .bento_apps-wrapper .main_button,
+  .bento_tales-wrapper .main_button,
+  .bento_crafts-wrapper .main_button {
+    height: 40px !important;
+    padding: 0.25rem 1rem !important;
+    font-size: 0.95rem !important;
+    border-radius: 12px !important;
+  }
+
+  /* === Hero Pocoyo slide – mobile === */
+  .hero_content-lottie {
+    min-height: 360px !important;
+    padding: 1rem;
+  }
+  .hero_image-pocoyo-gif {
+    max-width: 16rem !important;
+  }
+
+  /* === Form Feedback – mobile === */
+  .form_wrapper {
+    margin: 140px 1rem 3rem !important;
+    padding: 3rem 1.25rem 2rem !important;
+    max-width: calc(100% - 2rem);
+  }
+  .form_illu {
+    top: -130px !important;
+    width: 12rem !important;
+  }
+  .form_wrapper .faq_title {
+    font-size: 1.5rem !important;
+    white-space: normal !important;
+    line-height: 1.2;
+  }
+  .form_input-wrapper {
+    height: 56px !important;
+    padding: 1rem !important;
+  }
+  .form_input { font-size: 1rem !important; }
+  .form_input-wrapper.is-textarea {
+    min-height: 240px;
+    padding: 0.875rem 1rem !important;
+  }
+  .form_textarea {
+    min-height: 220px !important;
+    font-size: 1rem !important;
+    line-height: 1.5;
+    width: 100%;
+    field-sizing: content;
+  }
+  .button.max-width-full {
+    font-size: 1rem !important;
+    padding: 0.75rem 1.5rem !important;
+  }
 }

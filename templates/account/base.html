@@ -13,21 +13,13 @@
     <link rel="stylesheet" href="{% static 'assets/css/navbar.css' %}" />
     <link rel="stylesheet" href="{% static 'assets/css/z1.css' %}" />
     <link rel="stylesheet" href="{% static 'assets/css/z2.css' %}" />
+    <link rel="stylesheet" href="{% static 'assets/css/toast.css' %}" />
     <link
       rel="stylesheet"
       href="{% static 'assets/css/account.css' %}?v=10004"
     />
 
     <style>
-      html,
-      body,
-      button,
-      input,
-      textarea,
-      select {
-        font-family: var(--fonts--primary, "Dinosaur"), sans-serif;
-      }
-
       .navbar_top-link {
         color: var(--base-color-brand--grey3);
         transition: color 0.25s ease-in-out;
@@ -56,21 +48,25 @@
     <div class="page-wrapper">
       {% include 'includes/navbar.html' %}
 
-      <main class="auth-shell">
-        {% if messages %}
-        <div class="auth__messages">
-          {% for message in messages %}
-          <div
-            class="auth__alert auth__alert--visible auth__alert--{{ message.tags|default:'info' }}"
-          >
-            {{ message }}
-          </div>
-          {% endfor %}
-        </div>
-        {% endif %} {% block content %}{% endblock %}
-      </main>
+      <main class="auth-shell">{% block content %}{% endblock %}</main>
     </div>
 
+    {% if messages %}
+    <script>
+      window.__TOAST_FLASH__ = [
+        {% for message in messages %}
+        {
+          type: "{{ message.tags|default:'info' }}",
+          title: {% if message.level_tag == 'error' %}"Lỗi"{% elif message.level_tag == 'success' %}"Thành công"{% elif message.level_tag == 'warning' %}"Cảnh báo"{% else %}"Thông tin"{% endif %},
+          message: "{{ message|escapejs }}",
+          duration_ms: 5000
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+      ];
+    </script>
+    {% endif %}
+
+    <script src="{% static 'assets/js/toast.js' %}"></script>
     <script src="{% static 'assets/js/z1.js' %}"></script>
     <script src="{% static 'assets/js/z2.js' %}"></script>
     {% block extra_js %}{% endblock %}

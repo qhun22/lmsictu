@@ -70,10 +70,11 @@
    */
   function showFieldError(input, message) {
     if (!input) return;
-    input.classList.toggle('auth__input--error', Boolean(message));
+    input.classList.remove('auth__input--error');
     const errorEl = input.closest('.auth__field')?.querySelector(CONFIG.selectors.errorMessage);
     if (errorEl) {
-      errorEl.textContent = message || '';
+      errorEl.textContent = '';
+      errorEl.style.display = 'none';
     }
   }
 
@@ -97,12 +98,26 @@
    * @param {string} type - 'success' | 'error'
    */
   function showAlert(form, message, type) {
-    if (!form) return;
-    const alertEl = $(CONFIG.selectors.alertBox, form);
-    if (!alertEl) return;
-    alertEl.textContent = message;
-    alertEl.classList.remove('auth__alert--success', 'auth__alert--error');
-    alertEl.classList.add('auth__alert--visible', `auth__alert--${type}`);
+    if (typeof window.showToast === 'function') {
+      const toastType = type === 'success' ? 'success' : 'error';
+      window.showToast({
+        type: toastType,
+        title: toastType === 'success' ? 'Thành công' : 'Lỗi',
+        message: message,
+        duration: 5000
+      });
+    }
+  }
+
+  function toastError(message) {
+    if (typeof window.showToast === 'function') {
+      window.showToast({
+        type: 'error',
+        title: 'Lỗi',
+        message: message || 'Đã xảy ra lỗi.',
+        duration: 5000
+      });
+    }
   }
 
   /**
@@ -168,12 +183,21 @@
           if (!value) {
             showFieldError(input, 'Vui lòng nhập tên đăng nhập');
             valid = false;
+            if (typeof window.showToast === 'function') {
+              window.showToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập tên đăng nhập', duration: 5000 });
+            }
           } else if (value.length < 3) {
             showFieldError(input, 'Tên đăng nhập phải có ít nhất 3 ký tự');
             valid = false;
+            if (typeof window.showToast === 'function') {
+              window.showToast({ type: 'error', title: 'Lỗi', message: 'Tên đăng nhập phải có ít nhất 3 ký tự', duration: 5000 });
+            }
           } else if (value.length > 30) {
             showFieldError(input, 'Tên đăng nhập không quá 30 ký tự');
             valid = false;
+            if (typeof window.showToast === 'function') {
+              window.showToast({ type: 'error', title: 'Lỗi', message: 'Tên đăng nhập không quá 30 ký tự', duration: 5000 });
+            }
           } else {
             showFieldError(input, '');
           }
@@ -183,9 +207,15 @@
           if (!value) {
             showFieldError(input, 'Vui lòng nhập email');
             valid = false;
+            if (typeof window.showToast === 'function') {
+              window.showToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập email', duration: 5000 });
+            }
           } else if (!isValidEmail(value)) {
             showFieldError(input, 'Email không hợp lệ');
             valid = false;
+            if (typeof window.showToast === 'function') {
+              window.showToast({ type: 'error', title: 'Lỗi', message: 'Email không hợp lệ', duration: 5000 });
+            }
           } else {
             showFieldError(input, '');
           }
@@ -195,6 +225,9 @@
           if (!value) {
             showFieldError(input, 'Vui lòng nhập email hoặc tên đăng nhập');
             valid = false;
+            if (typeof window.showToast === 'function') {
+              window.showToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập email hoặc tên đăng nhập', duration: 5000 });
+            }
           } else {
             showFieldError(input, '');
           }
@@ -204,9 +237,15 @@
           if (!value) {
             showFieldError(input, 'Vui lòng nhập mật khẩu');
             valid = false;
+            if (typeof window.showToast === 'function') {
+              window.showToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập mật khẩu', duration: 5000 });
+            }
           } else if (formType === 'register' && value.length < 8) {
             showFieldError(input, 'Mật khẩu phải có ít nhất 8 ký tự');
             valid = false;
+            if (typeof window.showToast === 'function') {
+              window.showToast({ type: 'error', title: 'Lỗi', message: 'Mật khẩu phải có ít nhất 8 ký tự', duration: 5000 });
+            }
           } else {
             showFieldError(input, '');
           }
@@ -216,9 +255,15 @@
           if (!value) {
             showFieldError(input, 'Vui lòng nhập lại mật khẩu');
             valid = false;
+            if (typeof window.showToast === 'function') {
+              window.showToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập lại mật khẩu', duration: 5000 });
+            }
           } else if (value !== (data.password || '')) {
             showFieldError(input, 'Mật khẩu nhập lại không khớp');
             valid = false;
+            if (typeof window.showToast === 'function') {
+              window.showToast({ type: 'error', title: 'Lỗi', message: 'Mật khẩu nhập lại không khớp', duration: 5000 });
+            }
           } else {
             showFieldError(input, '');
           }
@@ -288,7 +333,6 @@
     const formType = form.dataset.authType || '';
     const endpoint = CONFIG.endpoints[formType] || form.action || window.location.href;
 
-    // Khóa nút submit khi đang xử lý
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Đang xử lý...';
@@ -298,31 +342,33 @@
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), CONFIG.ajaxTimeout);
 
+      const formData = new FormData(form);
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify(data),
+        body: formData,
+        credentials: 'same-origin',
         signal: controller.signal
       });
 
       clearTimeout(timeoutId);
 
-      // Thử parse JSON; nếu thất bại thì trả về thông báo mặc định
       let result;
       try {
         result = await response.json();
       } catch (err) {
-        result = { success: response.ok, message: response.ok ? 'Thành công!' : 'Có lỗi xảy ra. Vui lòng thử lại.' };
+        result = {
+          success: response.ok,
+          message: response.ok ? 'Thành công!' : 'Có lỗi xảy ra. Vui lòng thử lại.'
+        };
       }
 
       if (result.success) {
         showAlert(form, result.message || 'Thành công!', 'success');
         form.reset();
 
-        // Nếu backend trả về redirect URL, chuyển hướng
         if (result.redirect) {
           setTimeout(() => {
             window.location.href = result.redirect;
@@ -332,13 +378,11 @@
         showAlert(form, result.message || 'Thao tác thất bại. Vui lòng thử lại.', 'error');
       }
     } catch (error) {
-      // Lỗi mạng hoặc request bị huỷ
       const message = error.name === 'AbortError'
         ? 'Yêu cầu bị timeout. Vui lòng thử lại.'
         : 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.';
-      showAlert(form, message, 'error');
+      toastError(message);
     } finally {
-      // Mở lại nút submit
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
