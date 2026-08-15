@@ -52,6 +52,23 @@ html, body {
     line-height: 1.2;
 }
 
+html {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    overflow-y: scroll;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+body {
+    overflow-y: scroll;
+}
+
 a {
     color: var(--link-color--link-primary);
     font-weight: 500;
@@ -612,26 +629,6 @@ h2, h3, h5 {
     width: 48px;
     height: 48px;
     background-image: url("data:image/svg+xml,%3Csvg width='49' height='48' viewBox='0 0 49 48' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M14.75 14.25L34.25 33.75M34.25 14.25L14.75 33.75' stroke='%2300ABFF' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-}
-
-/* 🌟 Hiệu ứng xoay Hamburger Icon thành dấu X */
-.menu-icon_line-top,
-.menu-icon_line-middle,
-.menu-icon_line-bottom {
-    transition: transform 0.3s ease-in-out, opacity 0.2s ease-in-out;
-    transform-origin: center;
-}
-
-.navbar_menu-button.is-active .menu-icon_line-top {
-    transform: translateY(12px) rotate(45deg);
-}
-
-.navbar_menu-button.is-active .menu-icon_line-middle {
-    opacity: 0;
-}
-
-.navbar_menu-button.is-active .menu-icon_line-bottom {
-    transform: translateY(-12px) rotate(-45deg);
 }
 
 /* ==========================================================================

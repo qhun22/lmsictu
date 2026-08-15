@@ -1,0 +1,27 @@
+{% extends 'account/base.html' %} {% load static %} {% block title %}{{
+page_title }}{% endblock %} {% block content %}
+<main class="auth">
+  <div class="auth__card auth__card--wide">
+    <header class="auth__header">
+      <div class="auth__brand">
+        <img
+          src="{% static 'assets/img/435325.png' %}"
+          alt="User avatar"
+          class="auth__brand-image"
+        />
+      </div>
+      <h1 class="auth__title" id="account-title">
+        Xin chào, {{ request.user.username }}!
+      </h1>
+      <p class="auth__subtitle">Bạn đã đăng nhập thành công.</p>
+    </header>
+
+    <div class="auth__actions">
+      <a href="{% url 'home' %}" class="auth__button auth__button--secondary"
+        >Về trang chủ</a
+      >
+      <a href="{% url 'logout' %}" class="auth__button">Đăng xuất</a>
+    </div>
+  </div>
+</main>
+{% endblock %}

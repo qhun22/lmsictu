@@ -1,0 +1,78 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Tài khoản{% endblock %}</title>
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"
+    />
+    <link rel="stylesheet" href="{% static 'assets/css/navbar.css' %}" />
+    <link rel="stylesheet" href="{% static 'assets/css/z1.css' %}" />
+    <link rel="stylesheet" href="{% static 'assets/css/z2.css' %}" />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/account.css' %}?v=10004"
+    />
+
+    <style>
+      html,
+      body,
+      button,
+      input,
+      textarea,
+      select {
+        font-family: var(--fonts--primary, "Dinosaur"), sans-serif;
+      }
+
+      .navbar_top-link {
+        color: var(--base-color-brand--grey3);
+        transition: color 0.25s ease-in-out;
+      }
+      .navbar_top-link:hover {
+        color: var(--base-color-brand--blue) !important;
+      }
+
+      .page-wrapper {
+        background: #eaf2ff;
+        min-height: 100vh;
+      }
+
+      .auth-shell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100vh - 6rem);
+        padding: 7rem 1rem 2rem;
+      }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+  </head>
+  <body>
+    <div class="page-wrapper">
+      {% include 'includes/navbar.html' %}
+
+      <main class="auth-shell">
+        {% if messages %}
+        <div class="auth__messages">
+          {% for message in messages %}
+          <div
+            class="auth__alert auth__alert--visible auth__alert--{{ message.tags|default:'info' }}"
+          >
+            {{ message }}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %} {% block content %}{% endblock %}
+      </main>
+    </div>
+
+    <script src="{% static 'assets/js/z1.js' %}"></script>
+    <script src="{% static 'assets/js/z2.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>
