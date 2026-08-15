@@ -103,8 +103,8 @@ button, input, textarea, select {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 6rem);
-  padding: 7rem 1rem 2rem;
+  min-height: calc(100vh - 3rem);
+  padding: 1rem 1rem 1.25rem;
 }
 
 /* --------------------------------------------------------------------------
@@ -330,21 +330,25 @@ main.auth {
 /* Nút toggle hiển thị mật khẩu (mắt) */
 .auth__toggle-password {
   position: absolute;
-  right: 0.75rem;
+  right: 0.7rem;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
   padding: 0;
-  background: transparent;
+  background: rgba(0, 171, 255, 0.04);
   border: none;
-  border-radius: 50%;
+  border-radius: 12px;
   color: var(--pocoyo-text-muted);
   cursor: pointer;
-  transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out, transform 0.2s ease-in-out;
 }
 
 .auth__toggle-password:hover {
@@ -363,7 +367,7 @@ main.auth {
 }
 
 .auth__input--has-toggle {
-  padding-right: 3rem;
+  padding-right: 3.25rem;
 }
 
 /* Thông báo lỗi dưới input */
@@ -500,7 +504,7 @@ main.auth {
    -------------------------------------------------------------------------- */
 .auth__footer {
   text-align: center;
-  margin: 0.5rem 0 0;
+  margin: 0.2rem 0 0;
   font-size: 0.9rem;
   color: var(--pocoyo-text-muted);
 }
@@ -521,10 +525,15 @@ main.auth {
 
 /* Tablet & nhỏ hơn: card full width */
 @media (max-width: 575px) {
+  .auth-shell {
+    min-height: calc(100vh - 2rem);
+    padding: 1.5rem 0.75rem 1rem;
+  }
+
   .auth {
     padding: 1rem 0.75rem;
     justify-content: flex-start;
-    padding-top: 2rem;
+    padding-top: 0.5rem;
   }
 
   .auth__card {
@@ -551,6 +560,18 @@ main.auth {
     gap: 0.5rem 0.75rem;
   }
 
+  .auth__toggle-password {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    right: 0.6rem;
+    border-radius: 10px;
+  }
+
+  .auth__input--has-toggle {
+    padding-right: 3rem;
+  }
+
   /* Brand image nhỏ hơn trên mobile */
   .auth__brand-image {
     width: 64px;
@@ -568,13 +589,19 @@ main.auth {
 
 /* Desktop ≥992px: card max 520px, căn giữa hoàn hảo */
 @media (min-width: 992px) {
+  .auth-shell {
+    min-height: calc(100vh - 5rem);
+    padding: 0.75rem 1rem 1rem;
+  }
+
   .auth {
-    padding: 2rem 1rem;
+    min-height: 0;
+    padding: 1rem 1rem;
   }
 
   .auth__card {
     max-width: 520px;
-    padding: 2.5rem 2rem;
+    padding: 2rem 2rem;
   }
 }
 

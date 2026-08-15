@@ -549,6 +549,8 @@ img, video, svg, iframe, pre, code, table {
 }
 
 @media screen and (max-width: 767px) {
+  .padding-xhuge { padding-top: 3rem !important; }
+
   .hero_content-image.is-line-img.is-desktop-banner { display: none; }
   .hero_content-image.is-line-img.is-mobile-banner {
     display: block;
@@ -714,24 +716,24 @@ img, video, svg, iframe, pre, code, table {
 
   /* === Hero Pocoyo slide – mobile === */
   .hero_content-lottie {
-    min-height: 360px !important;
-    padding: 1rem;
+    min-height: 300px !important;
+    padding: 0.5rem 1rem 0;
   }
   .hero_lottie {
     /* Trên mobile: chữ "hola" nằm phía trên, thu nhỏ để không đè Pocoyo */
     position: absolute !important;
-    top: 0 !important;
+    top: 12px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     width: 100% !important;
-    max-width: 320px !important;
-    height: 160px !important;
+    max-width: 280px !important;
+    height: 130px !important;
     z-index: 1 !important;
   }
   .hero_image-pocoyo-gif {
-    max-width: 16rem !important;
+    max-width: 15rem !important;
     z-index: 2 !important;
-    margin-top: 110px !important; /* đẩy xuống dưới chữ "hola" */
+    margin-top: 82px !important;
   }
 
   /* === Form Feedback – mobile === */

@@ -70,8 +70,19 @@
    */
   function showFieldError(input, message) {
     if (!input) return;
-    input.classList.remove('auth__input--error');
+
     const errorEl = input.closest('.auth__field')?.querySelector(CONFIG.selectors.errorMessage);
+
+    if (message && message.trim()) {
+      input.classList.add('auth__input--error');
+      if (errorEl) {
+        errorEl.textContent = message;
+        errorEl.style.display = 'block';
+      }
+      return;
+    }
+
+    input.classList.remove('auth__input--error');
     if (errorEl) {
       errorEl.textContent = '';
       errorEl.style.display = 'none';
@@ -155,6 +166,8 @@
     const formType = form.dataset.authType || form.id;
     const data = {};
     let valid = true;
+    let firstErrorInput = null;
+    let firstErrorMessage = '';
 
     // Lấy tất cả input có name
     const inputs = $$('input[name]', form);
@@ -177,104 +190,68 @@
         return;
       }
 
+      let errorMessage = '';
+
       // Validate theo từng trường hợp
       switch (name) {
         case 'username':
           if (!value) {
-            showFieldError(input, 'Vui lòng nhập tên đăng nhập');
-            valid = false;
-            if (typeof window.showToast === 'function') {
-              window.showToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập tên đăng nhập', duration: 5000 });
-            }
+            errorMessage = 'Vui lòng nhập tên đăng nhập';
           } else if (value.length < 3) {
-            showFieldError(input, 'Tên đăng nhập phải có ít nhất 3 ký tự');
-            valid = false;
-            if (typeof window.showToast === 'function') {
-              window.showToast({ type: 'error', title: 'Lỗi', message: 'Tên đăng nhập phải có ít nhất 3 ký tự', duration: 5000 });
-            }
+            errorMessage = 'Tên đăng nhập phải có ít nhất 3 ký tự';
           } else if (value.length > 30) {
-            showFieldError(input, 'Tên đăng nhập không quá 30 ký tự');
-            valid = false;
-            if (typeof window.showToast === 'function') {
-              window.showToast({ type: 'error', title: 'Lỗi', message: 'Tên đăng nhập không quá 30 ký tự', duration: 5000 });
-            }
-          } else {
-            showFieldError(input, '');
+            errorMessage = 'Tên đăng nhập không quá 30 ký tự';
           }
           break;
 
         case 'email':
           if (!value) {
-            showFieldError(input, 'Vui lòng nhập email');
-            valid = false;
-            if (typeof window.showToast === 'function') {
-              window.showToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập email', duration: 5000 });
-            }
+            errorMessage = 'Vui lòng nhập email';
           } else if (!isValidEmail(value)) {
-            showFieldError(input, 'Email không hợp lệ');
-            valid = false;
-            if (typeof window.showToast === 'function') {
-              window.showToast({ type: 'error', title: 'Lỗi', message: 'Email không hợp lệ', duration: 5000 });
-            }
-          } else {
-            showFieldError(input, '');
+            errorMessage = 'Email không hợp lệ';
           }
           break;
 
         case 'identifier': // forgot-password (email hoặc username)
           if (!value) {
-            showFieldError(input, 'Vui lòng nhập email hoặc tên đăng nhập');
-            valid = false;
-            if (typeof window.showToast === 'function') {
-              window.showToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập email hoặc tên đăng nhập', duration: 5000 });
-            }
-          } else {
-            showFieldError(input, '');
+            errorMessage = 'Vui lòng nhập email hoặc tên đăng nhập';
           }
           break;
 
         case 'password':
           if (!value) {
-            showFieldError(input, 'Vui lòng nhập mật khẩu');
-            valid = false;
-            if (typeof window.showToast === 'function') {
-              window.showToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập mật khẩu', duration: 5000 });
-            }
+            errorMessage = 'Vui lòng nhập mật khẩu';
           } else if (formType === 'register' && value.length < 8) {
-            showFieldError(input, 'Mật khẩu phải có ít nhất 8 ký tự');
-            valid = false;
-            if (typeof window.showToast === 'function') {
-              window.showToast({ type: 'error', title: 'Lỗi', message: 'Mật khẩu phải có ít nhất 8 ký tự', duration: 5000 });
-            }
-          } else {
-            showFieldError(input, '');
+            errorMessage = 'Mật khẩu phải có ít nhất 8 ký tự';
           }
           break;
 
         case 'password_confirm':
           if (!value) {
-            showFieldError(input, 'Vui lòng nhập lại mật khẩu');
-            valid = false;
-            if (typeof window.showToast === 'function') {
-              window.showToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập lại mật khẩu', duration: 5000 });
-            }
+            errorMessage = 'Vui lòng nhập lại mật khẩu';
           } else if (value !== (data.password || '')) {
-            showFieldError(input, 'Mật khẩu nhập lại không khớp');
-            valid = false;
-            if (typeof window.showToast === 'function') {
-              window.showToast({ type: 'error', title: 'Lỗi', message: 'Mật khẩu nhập lại không khớp', duration: 5000 });
-            }
-          } else {
-            showFieldError(input, '');
+            errorMessage = 'Mật khẩu nhập lại không khớp';
           }
           break;
 
         default:
-          showFieldError(input, '');
+          break;
+      }
+
+      if (errorMessage) {
+        valid = false;
+        showFieldError(input, errorMessage);
+
+        if (!firstErrorInput) {
+          firstErrorInput = input;
+          firstErrorMessage = errorMessage;
+        }
+      } else {
+        showFieldError(input, '');
       }
     });
 
-    return { valid, data };
+    return { valid, data, firstErrorInput, firstErrorMessage };
   }
 
   /* ============================================================
@@ -420,13 +397,12 @@
     event.preventDefault();
     clearFormErrors(form);
 
-    const { valid, data } = validateForm(form);
+    const { valid, data, firstErrorInput, firstErrorMessage } = validateForm(form);
 
     if (!valid) {
-      // Focus vào input lỗi đầu tiên
-      const firstError = $('.auth__input--error', form);
-      if (firstError) firstError.focus();
-      showAlert(form, 'Vui lòng kiểm tra lại các trường thông tin.', 'error');
+      // Chỉ hiển thị 1 toast duy nhất theo lỗi đầu tiên
+      if (firstErrorInput) firstErrorInput.focus();
+      toastError(firstErrorMessage || 'Vui lòng điền đầy đủ thông tin.');
       return;
     }
 
