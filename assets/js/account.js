@@ -366,10 +366,22 @@
       }
 
       if (result.success) {
-        showAlert(form, result.message || 'Thành công!', 'success');
+        // Đăng nhập thành công: KHÔNG show toast ở trang login.
+        // Toast "Đăng nhập thành công" sẽ hiện ở trang home (qua Django messages).
+        // Lý do: tránh toast "flash" trước khi redirect, UX mượt hơn.
+        if (formType !== 'login') {
+          showAlert(form, result.message || 'Thành công!', 'success');
+        }
         form.reset();
 
-        if (result.redirect) {
+        // Đăng ký thành công: không tự chuyển trang, giữ nguyên tại /register/.
+        // Đổi nút submit thành link "Đăng nhập ngay" để user có đường đi rõ ràng.
+        if (formType === 'register') {
+          if (submitBtn) {
+            submitBtn.outerHTML = '<a href="' + (CONFIG.endpoints.login || '/login/') +
+              '" class="auth__button" aria-label="Đăng nhập ngay">Đăng nhập ngay</a>';
+          }
+        } else if (result.redirect) {
           setTimeout(() => {
             window.location.href = result.redirect;
           }, 800);
