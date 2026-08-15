@@ -1,0 +1,108 @@
+@media screen and (min-width: 992px) {
+    [data-style=read]:hover {
+        background-color: var(--base-color-characters--blue)
+    }
+
+    [data-style=read]:hover .bento_h2 {
+        color: var(--base-color-neutral--white)
+    }
+
+    [data-style=make]:hover {
+        background-color: var(--base-color-characters--pink)
+    }
+
+    [data-style=make]:hover .bento_h2 {
+        color: var(--base-color-neutral--white)
+    }
+
+    [data-style=meet]:hover {
+        background-color: var(--base-color-characters--orange)
+    }
+
+    [data-style=meet]:hover .bento_h2-medium, [data-style=meet]:hover .bento_h2-small {
+        color: var(--base-color-neutral--white)
+    }
+
+    [data-style=play]:hover {
+        background-color: var(--base-color-characters--green)
+    }
+
+    [data-style=play]:hover .bento_h2 {
+        color: var(--base-color-neutral--white)
+    }
+}
+
+@media screen and (min-width: 992px) {
+    .navbar_container {
+        padding-right: 2rem
+    }
+
+    [data-visible=false] {
+        display: none
+    }
+}
+
+[data-styles=episodes]:hover {
+    background-color: var(--base-color-brand--blue);
+
+    [data-styles=episodes-title] {
+        color: var(--base-color-neutral--white)
+    }
+
+    .main_button {
+        background-color: var(--base-color-neutral--white);
+        color: var(--base-color-brand--blue)
+    }
+}
+
+[data-styles=songs]:hover {
+    background-color: var(--base-color-brand--pink-new);
+
+    [data-styles=songs-title] {
+        color: var(--base-color-neutral--white)
+    }
+
+    .main_button {
+        background-color: var(--base-color-neutral--white);
+        color: var(--base-color-brand--pink-new)
+    }
+}
+
+[data-styles=apps]:hover {
+    background-color: var(--base-color-brand--green-new);
+
+    [data-styles=apps-title] {
+        color: var(--base-color-neutral--white)
+    }
+
+    .main_button {
+        background-color: var(--base-color-neutral--white);
+        color: var(--base-color-brand--green-new)
+    }
+}
+
+[data-styles=tales]:hover {
+    background-color: var(--base-color-brand--orange-new);
+
+    [data-styles=tales-title] {
+        color: var(--base-color-neutral--white)
+    }
+
+    .main_button {
+        background-color: var(--base-color-neutral--white);
+        color: var(--base-color-brand--orange-new)
+    }
+}
+
+[data-styles=crafts]:hover {
+    background-color: var(--base-color-brand--orange);
+
+    [data-styles=crafts-title] {
+        color: var(--base-color-neutral--white)
+    }
+
+    .main_button {
+        background-color: var(--base-color-neutral--white);
+        color: var(--base-color-brand--orange)
+    }
+}

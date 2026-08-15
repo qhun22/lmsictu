@@ -1,0 +1,785 @@
+/* ==========================================================================
+   1. VARIABLES & FONT FACES
+   ========================================================================== */
+@font-face {
+    font-family: Dinosaur;
+    src: url(https://cdn.prod.website-files.com/662fb92f905585b61b12afd8/6630ba4d5485e69993c3d3ff_l%20\(2\));
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: Dinosaur;
+    src: url(https://cdn.prod.website-files.com/662fb92f905585b61b12afd8/6630bc70f7a0e51b37898c54_d-700);
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+:root {
+    --fonts--primary: Dinosaur, sans-serif;
+    --base-color-brand--grey2: #f2f8ff;
+    --base-color-brand--grey3: #818d99;
+    --base-color-brand--blue: #00abff;
+    --base-color-brand--blue-dark: #1f5381;
+    --base-color-neutral--black: #000000;
+    --base-color-neutral--white: #ffffff;
+    --base-color-neutral--neutral: #9b9da9;
+    --white: #ffffff;
+    --black: #2b2f33;
+    --background-color--background-tertiary: var(--base-color-brand--blue);
+    --link-color--link-primary: var(--base-color-brand--blue);
+    --link-color--link-alternate: var(--base-color-neutral--white);
+}
+
+/* ==========================================================================
+   2. BASE & RESET
+   ========================================================================== */
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    background-color: var(--base-color-brand--grey2);
+    font-family: var(--fonts--primary);
+    color: var(--base-color-neutral--black);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+a {
+    color: var(--link-color--link-primary);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+img {
+    max-width: 100%;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+h2, h3, h5 {
+    margin-top: 0;
+    margin-bottom: 0;
+    font-weight: 700;
+}
+
+.heading-style-h2 {
+    letter-spacing: -1.92px;
+    font-size: 4rem;
+    font-weight: 900;
+    line-height: 100%;
+}
+
+.heading-style-h3 {
+    letter-spacing: -1.44px;
+    font-size: 3rem;
+    font-weight: 900;
+    line-height: 110%;
+}
+
+.heading-style-h5 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 110%;
+}
+
+.text-style-allcaps {
+    text-transform: uppercase;
+}
+
+.text-color-blue {
+    color: var(--base-color-brand--blue);
+}
+
+.relative {
+    position: relative;
+}
+
+.z-index-2 {
+    z-index: 2;
+    position: relative;
+}
+
+.w-inline-block {
+    max-width: 100%;
+    display: inline-block;
+}
+
+.w-dropdown {
+    text-align: left;
+    z-index: 900;
+    margin-left: auto;
+    margin-right: auto;
+    display: inline-block;
+    position: relative;
+}
+
+.w-dropdown-toggle {
+    user-select: none;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.w-dropdown-list {
+    background: #ddd;
+    min-width: 100%;
+    display: none;
+    position: absolute;
+}
+
+.w-dropdown-list.w--open {
+    display: block;
+}
+
+.w-layout-grid {
+    grid-row-gap: 16px;
+    grid-column-gap: 16px;
+    grid-template-rows: auto auto;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-columns: 1fr;
+    display: grid;
+}
+
+.display-flex-center {
+    justify-content: center;
+    align-items: center;
+    display: flex;
+}
+
+.display-flex-h-left-center {
+    justify-content: flex-start;
+    align-items: center;
+    display: flex;
+}
+
+.display-flex-h-left-center.is-tiny {
+    grid-column-gap: .25rem;
+    grid-row-gap: .25rem;
+}
+
+.display-flex-h-left-center.is-xsmall {
+    grid-column-gap: .75rem;
+    grid-row-gap: .75rem;
+}
+
+.page-wrapper {
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 0;
+    overflow: clip;
+}
+
+/* ==========================================================================
+   3. HEADER & MAIN NAVBAR
+   ========================================================================== */
+.navbar_top-wrapper {
+    min-height: 6rem;
+}
+
+.navbar_component {
+    z-index: 10;
+    align-items: center;
+    width: 100%;
+    height: 6rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+    transition: all .4s ease-in-out;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+
+.navbar_container {
+    z-index: 9;
+    border-radius: 100px;
+    grid-template-rows: auto;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-auto-columns: 1fr;
+    justify-content: space-between;
+    place-items: flex-end stretch;
+    width: 100%;
+    max-width: 80rem;
+    height: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    display: flex;
+    position: relative;
+}
+
+.navbar_right-wrapper {
+    grid-column-gap: 1.5rem;
+    grid-row-gap: 1.5rem;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+}
+
+.navbar_left-wrapper {
+    grid-column-gap: 2rem;
+    grid-row-gap: 2rem;
+    background-color: var(--white);
+    border-radius: 999px;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 11.5px 16px;
+    display: flex;
+}
+
+.navbar_logo-link {
+    margin-bottom: 1rem;
+    float: left;
+    text-decoration: none;
+    position: relative;
+}
+
+.navbar_logo {
+    height: 48px;
+}
+
+.navbar_link {
+    color: var(--base-color-brand--blue);
+    text-transform: uppercase;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-size: clamp(1.5rem, 1vw, 1.125rem);
+    font-weight: 700;
+    line-height: 110%;
+    transition: all .2s ease-in-out;
+}
+
+.navbar_link:hover {
+    color: var(--base-color-brand--blue-dark);
+}
+
+.navbar_link.w--current {
+    color: var(--base-color-neutral--black);
+}
+
+/* Watch Button */
+.watch-link {
+    grid-column-gap: .5rem;
+    grid-row-gap: .5rem;
+    background-color: var(--background-color--background-tertiary);
+    height: 49px;
+    color: var(--link-color--link-alternate);
+    border-radius: 100px;
+    justify-content: flex-start;
+    align-items: center;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    font-size: 1.5rem;
+    line-height: 100%;
+    transition: all .2s ease-in-out;
+    display: inline-flex;
+}
+
+.watch-link:hover {
+    background-color: #08c;
+}
+
+.watch_flex-link {
+    grid-column-gap: .5rem;
+    grid-row-gap: .5rem;
+    justify-content: center;
+    align-items: center;
+    display: inline-flex;
+}
+
+.button_icon {
+    flex-flow: column;
+    justify-content: center;
+    align-items: center;
+    width: auto;
+    height: 16px;
+}
+
+.watch_text {
+    height: auto;
+    font-weight: 900;
+    line-height: 110%;
+}
+
+/* Hamburger Icon */
+.navbar_menu-button {
+    cursor: pointer;
+}
+
+.menu-icon {
+    flex-flow: column;
+    justify-content: center;
+    align-items: center;
+    width: 72px;
+    height: 72px;
+    display: flex;
+}
+
+.menu-icon_line-top,
+.menu-icon_line-bottom {
+    background-color: var(--base-color-brand--blue);
+    border-radius: 32px;
+    width: 32px;
+    height: 4px;
+}
+
+.menu-icon_line-middle {
+    background-color: var(--base-color-brand--blue);
+    border-radius: 32px;
+    width: 36px;
+    height: 4px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+/* Animation mượt cho các nét gạch */
+.menu-icon_line-top,
+.menu-icon_line-middle,
+.menu-icon_line-bottom {
+  transition: transform 0.3s ease-in-out, opacity 0.2s ease-in-out;
+  transform-origin: center;
+}
+
+/* Khi nút Hamburger có class .is-active */
+.navbar_menu-button.is-active .menu-icon_line-top {
+  transform: translateY(12px) rotate(45deg);
+}
+
+.navbar_menu-button.is-active .menu-icon_line-middle {
+  opacity: 0;
+}
+
+.navbar_menu-button.is-active .menu-icon_line-bottom {
+  transform: translateY(-12px) rotate(-45deg);
+}
+
+/* ==========================================================================
+   4. OVERLAY MENU (DROPDOWN / EXPANDED MENU)
+   ========================================================================== */
+.navbar_overlay-wrapper {
+    z-index: 8;
+    width: 100vw;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 2rem 2rem;
+    position: fixed;
+    inset: 0%;
+    
+    /* 🌟 Hiệu ứng mượt cho phông nền Overlay */
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+.navbar_menu {
+    z-index: 9;
+    grid-column-gap: 3rem;
+    grid-row-gap: 3rem;
+    background-color: var(--white);
+    border-radius: 24px;
+    flex-flow: column;
+    justify-content: flex-start;
+    align-self: flex-start;
+    align-items: stretch;
+    width: 100%;
+    max-width: 73.75rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 3rem;
+    display: flex;
+    position: relative;
+    top: 14%;
+    box-shadow: 0 20px 28px #00000026;
+
+    /* 🌟 Hiệu ứng trượt nhẹ từ trên xuống (Slide Down + Fade In) */
+    transform: translateY(-20px) scale(0.98);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 🟢 KHI BẬT MENU (.is-open) */
+.navbar_overlay-wrapper.is-open {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.navbar_overlay-wrapper.is-open .navbar_menu {
+    transform: translateY(0) scale(1);
+}
+
+.navbar_menu-content {
+    z-index: 2;
+    grid-column-gap: 2rem;
+    grid-row-gap: 2rem;
+    justify-content: flex-start;
+    align-items: flex-start;
+    display: flex;
+    position: relative;
+}
+
+.navbar_menu-content-left {
+    grid-column-gap: 2rem;
+    grid-row-gap: 4rem;
+    grid-template-rows: auto auto;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-auto-columns: 1fr;
+    width: 100%;
+    display: grid;
+}
+
+.navbar_menu-content-fixed {
+    width: 200px;
+    max-width: 200px;
+}
+
+.navbar_dropdown-toggle {
+    grid-column-gap: .25rem;
+    grid-row-gap: .25rem;
+    color: var(--base-color-brand--grey3);
+    cursor: auto;
+    justify-content: flex-start;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    padding: 0;
+    font-weight: 500;
+    display: flex;
+}
+
+.navbar_top-link {
+    color: var(--base-color-brand--grey3);
+    transition: 0.25s all ease-in-out;
+}
+
+.navbar_top-link:hover {
+    color: var(--base-color-brand--blue) !important;
+}
+
+.navbar_dropdown-list {
+    background-color: #0000;
+    display: block;
+    position: static;
+}
+
+.navbar_menu-content-wrapper {
+    grid-column-gap: 4px;
+    grid-row-gap: 4px;
+    flex-flow: column;
+    display: flex;
+}
+
+.navbar_menu-content-link {
+    justify-content: flex-start;
+    align-items: center;
+    height: 38px;
+    padding-left: .75rem;
+    padding-right: .75rem;
+    font-weight: 700;
+    transition: all .3s ease-in-out;
+    display: flex;
+}
+
+.navbar_menu-content-link:hover {
+    color: var(--base-color-brand--blue-dark);
+}
+
+.navbar_menu-content-fixed-bottom {
+    grid-column-gap: 16px;
+    grid-row-gap: 16px;
+    grid-template-rows: auto;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-auto-columns: 1fr;
+    width: 100%;
+    max-width: 100%;
+    display: grid;
+}
+
+.navbar_menu-link-arrow {
+    grid-column-gap: .5rem;
+    grid-row-gap: .5rem;
+    color: var(--base-color-neutral--neutral);
+    justify-content: flex-start;
+    align-items: center;
+    display: flex;
+}
+
+/* Banner Right in Overlay */
+.navbar_menu-content-right {
+    background-color: var(--base-color-brand--grey2);
+    border-radius: 24px;
+    flex-flow: column;
+    justify-content: space-between;
+    width: 100%;
+    height: 496px;
+    padding-top: 27px;
+    padding-bottom: 40px;
+    padding-left: 30px;
+    display: flex;
+}
+
+.navbar_pocoyo-songs-image {
+    position: absolute;
+    bottom: 60px;
+    right: 0;
+}
+
+.navbar_listen-wrapper {
+    grid-column-gap: 12px;
+    grid-row-gap: 12px;
+    justify-content: flex-start;
+    align-items: center;
+    display: flex;
+}
+
+/* Footer inside Overlay Menu */
+.navbar_bottom {
+    justify-content: space-between;
+    align-items: center;
+    display: flex;
+}
+
+.navbar_flag-wrapper {
+    grid-column-gap: .5rem;
+    grid-row-gap: .5rem;
+    color: var(--base-color-neutral--black);
+    padding: 0;
+    font-weight: 700;
+    display: flex;
+}
+
+.navbar_flag-image {
+    width: 1.5rem;
+    min-width: 1.5rem;
+    max-width: 1.5rem;
+    height: 1.5rem;
+    min-height: 1.5rem;
+    max-height: 1.5rem;
+}
+
+.navbar_flag-list.w--open {
+    background-color: #0000;
+    top: 32px;
+}
+
+.navbar_social-list {
+    grid-template-rows: auto;
+    grid-template-columns: auto auto auto auto;
+    justify-content: center;
+    align-items: center;
+    display: flex;
+}
+
+.footer_social-icon {
+    width: 2rem;
+    height: 2rem;
+}
+
+.show-tablet {
+    display: none;
+}
+
+/* Custom Icons SVG Replacements */
+.icon-arrow, .icon-chevron-down, .icon-close {
+    display: inline-block;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.icon-arrow {
+    width: 24px;
+    height: 24px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23818d99' fill-rule='evenodd' d='M9 17a1 1 0 0 0 1.707.707l5-5a1 1 0 0 0 0-1.414l-5-5A1 1 0 0 0 9 7v10Z' clip-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+.icon-chevron-down {
+    width: 12px;
+    height: 7px;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='7' viewBox='0 0 12 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1.5 1.25L6 5.75L10.5 1.25' stroke='%2300ABFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.icon-close {
+    width: 48px;
+    height: 48px;
+    background-image: url("data:image/svg+xml,%3Csvg width='49' height='48' viewBox='0 0 49 48' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M14.75 14.25L34.25 33.75M34.25 14.25L14.75 33.75' stroke='%2300ABFF' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* 🌟 Hiệu ứng xoay Hamburger Icon thành dấu X */
+.menu-icon_line-top,
+.menu-icon_line-middle,
+.menu-icon_line-bottom {
+    transition: transform 0.3s ease-in-out, opacity 0.2s ease-in-out;
+    transform-origin: center;
+}
+
+.navbar_menu-button.is-active .menu-icon_line-top {
+    transform: translateY(12px) rotate(45deg);
+}
+
+.navbar_menu-button.is-active .menu-icon_line-middle {
+    opacity: 0;
+}
+
+.navbar_menu-button.is-active .menu-icon_line-bottom {
+    transform: translateY(-12px) rotate(-45deg);
+}
+
+/* ==========================================================================
+   5. RESPONSIVE (MEDIA QUERIES)
+   ========================================================================== */
+@media screen and (min-width: 992px) and (max-width: 1200px) {
+    .navbar_left-wrapper {
+        gap: 0.75rem;
+    }
+
+    .navbar_link {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+
+@media screen and (max-width: 991px) {
+    .hide-tablet {
+        display: none !important;
+    }
+
+    .show-tablet {
+        display: block !important;
+    }
+
+    .navbar_component {
+        height: 5.5rem;
+        padding-left: .5rem;
+        padding-right: 1.5rem;
+    }
+
+    .navbar_container {
+        grid-template-columns: 1fr 1fr;
+        grid-auto-columns: 1fr;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .navbar_logo {
+        height: 36px;
+    }
+
+    .navbar_logo-link {
+        margin-bottom: 0;
+    }
+
+    .navbar_menu-button {
+        justify-content: center;
+        align-items: center;
+    }
+
+    .menu-icon {
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        display: flex;
+    }
+
+    .navbar_overlay-wrapper {
+        z-index: 10;
+        background-color: var(--base-color-brand--grey2);
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .navbar_menu {
+        transition: height .5s;
+        top: 0;
+    }
+
+    .navbar_menu-content-left {
+        grid-column-gap: 2rem;
+        grid-row-gap: 2rem;
+        flex-flow: column;
+        grid-template-rows: auto;
+        grid-template-columns: 1fr;
+        display: flex;
+    }
+
+    .navbar_menu-content-link {
+        height: 34px;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .navbar_menu-content-fixed {
+        width: auto;
+        max-width: 100%;
+    }
+
+    .navbar_dropdown {
+        width: 100%;
+    }
+
+    .navbar_dropdown-toggle {
+        grid-column-gap: .75rem;
+        grid-row-gap: .75rem;
+        width: 100%;
+        color: var(--base-color-neutral--black);
+        cursor: pointer;
+        justify-content: flex-start;
+        align-items: center;
+        margin-bottom: .5rem;
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .navbar_dropdown-link {
+        color: var(--base-color-brand--blue);
+    }
+
+    .navbar_dropdown-list {
+        display: none;
+        position: relative;
+    }
+
+    .navbar_dropdown-icon {
+        margin-top: 6px;
+        display: flex;
+    }
+
+    .navbar_bottom {
+        justify-content: center;
+    }
+
+    .navbar_flag-component.show-tablet {
+        display: block !important;
+    }
+
+    .navbar_flag-toggle {
+        padding: 12px;
+    }
+
+    .navbar_menu-close {
+        z-index: 10;
+        cursor: pointer;
+        position: fixed;
+        inset: 1rem 1rem auto auto;
+    }
+}
+
+@media screen and (max-width: 767px) {
+    .navbar_top-wrapper {
+        min-height: 5.5rem;
+    }
+
+    .navbar_menu-content-fixed-bottom {
+        grid-template-columns: 1fr;
+    }
+}
