@@ -134,8 +134,8 @@ main.auth {
   margin: 0 auto;
   width: 100%;
   max-width: 520px;
-  min-height: calc(100vh - 6rem);
-  padding: 6rem 1rem 2rem;
+  min-height: calc(100vh - 4rem);
+  padding: 2rem 1rem 2rem;
   /* box-sizing để padding không làm card vượt 520px */
   box-sizing: border-box;
 }
@@ -383,7 +383,7 @@ main.auth {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.5rem 1rem;
   margin-top: -0.5rem;
 }
 
@@ -395,6 +395,7 @@ main.auth {
   font-size: 0.9rem;
   color: var(--pocoyo-text-dark);
   user-select: none;
+  flex-shrink: 0;
 }
 
 .auth__checkbox {
@@ -438,6 +439,8 @@ main.auth {
 .auth__forgot-link {
   font-size: 0.9rem;
   font-weight: 600;
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .auth__forgot-link:hover {
@@ -521,7 +524,7 @@ main.auth {
   .auth {
     padding: 1rem 0.75rem;
     justify-content: flex-start;
-    padding-top: 5rem;
+    padding-top: 2rem;
   }
 
   .auth__card {
@@ -543,11 +546,9 @@ main.auth {
     gap: 1.25rem;
   }
 
-  /* Options stack dọc */
+  /* Options giữ nguyên hàng, tự wrap nếu quá chật (gap nhỏ lại trên mobile) */
   .auth__options {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
+    gap: 0.5rem 0.75rem;
   }
 
   /* Brand image nhỏ hơn trên mobile */

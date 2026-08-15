@@ -77,6 +77,7 @@ body::-webkit-scrollbar {
 }
 
 body {
+    overflow-x: hidden;
     overflow-y: scroll;
 }
 
@@ -362,8 +363,8 @@ h2, h3, h5 {
     flex-flow: column;
     justify-content: center;
     align-items: center;
-    width: 72px;
-    height: 72px;
+    width: 44px;
+    height: 44px;
     display: flex;
 }
 
@@ -399,6 +400,7 @@ h2, h3, h5 {
 
 .navbar_menu-button.is-active .menu-icon_line-middle {
   opacity: 0;
+  transform: scaleX(0);
 }
 
 .navbar_menu-button.is-active .menu-icon_line-bottom {
@@ -787,9 +789,49 @@ h2, h3, h5 {
     }
 
     .navbar_component {
-        height: 5.5rem;
-        padding-left: .5rem;
-        padding-right: 1.5rem;
+        height: 3.5rem;
+        padding-left: .25rem;
+        padding-right: .75rem;
+    }
+
+    .navbar_menu-button {
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        min-height: 38px !important;
+    }
+
+    .menu-icon {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+    }
+
+    .menu-icon_line-top,
+    .menu-icon_line-bottom {
+        width: 24px !important;
+        height: 3px !important;
+    }
+
+    .menu-icon_line-middle {
+        width: 26px !important;
+        height: 3px !important;
+        margin-top: 5px !important;
+        margin-bottom: 5px !important;
+    }
+
+    .navbar_menu-button.is-active .menu-icon_line-top {
+        transform: translateY(8px) rotate(45deg) !important;
+    }
+
+    .navbar_menu-button.is-active .menu-icon_line-middle {
+        opacity: 0 !important;
+        transform: scaleX(0) !important;
+    }
+
+    .navbar_menu-button.is-active .menu-icon_line-bottom {
+        transform: translateY(-8px) rotate(-45deg) !important;
     }
 
     .navbar_container {
@@ -800,7 +842,7 @@ h2, h3, h5 {
     }
 
     .navbar_logo {
-        height: 36px;
+        height: 28px;
     }
 
     .navbar_logo-link {
@@ -860,6 +902,8 @@ h2, h3, h5 {
         list-style: none;
         cursor: pointer;
         user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
     }
 
     .navbar_mobile-item > .navbar_mobile-summary::-webkit-details-marker {
@@ -885,10 +929,21 @@ h2, h3, h5 {
         color: var(--base-color-brand--blue);
     }
 
-    .navbar_mobile-subnav {
+    /* === Accordion animation mượt bằng CSS Grid (mobile) === */
+    .navbar_mobile-item > .navbar_mobile-subnav {
+        display: grid;
+        grid-template-rows: 0fr;
+        padding: 0 0 0 3rem;
+        transition: grid-template-rows 0.3s ease, padding 0.3s ease;
+    }
+    .navbar_mobile-item > .navbar_mobile-subnav > .navbar_mobile-subnav-inner {
+        overflow: hidden;
         display: flex;
         flex-direction: column;
         gap: 0.15rem;
+    }
+    .navbar_mobile-item[open] > .navbar_mobile-subnav {
+        grid-template-rows: 1fr;
         padding: 0.25rem 0 0.5rem 3rem;
     }
 

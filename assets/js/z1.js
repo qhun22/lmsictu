@@ -120,4 +120,23 @@ document.addEventListener('DOMContentLoaded', () => {
       toggleMenu(false);
     }
   });
+
+  // ==========================================
+  // C. ĐÓNG MENU KHI CLICK VÀO LINK ĐIỀU HƯỚNG
+  // ==========================================
+  // Khi user bấm vào bất kỳ link nào trong menu mobile, đóng menu ngay
+  // để tránh cảm giác "khựng" do phải đợi trang load xong.
+  if (menuContent) {
+    menuContent.addEventListener('click', (e) => {
+      const link = e.target.closest('.js-mobile-nav-link');
+      if (link) {
+        // Đóng menu ngay lập tức (không đợi animation) để cảm giác phản hồi nhanh
+        toggleMenu(false);
+        // Reset tất cả <details> đang mở về đóng
+        menuContent.querySelectorAll('details[open]').forEach((d) => {
+          d.removeAttribute('open');
+        });
+      }
+    });
+  }
 });

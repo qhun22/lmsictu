@@ -13,6 +13,13 @@
   padding-right: 2.5rem;
 }
 
+@media screen and (max-width: 768px) {
+  .padding-global {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
 .container-large {
   width: 100%;
   max-width: 80rem;
@@ -521,10 +528,24 @@
     flex: 0 0 100%;
     max-width: 100%;
   }
-  .heading-style-h1 { font-size: 3.5rem; }
+  .heading-style-h1 {
+    font-size: 2.25rem;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .heading-style-h2 { font-size: 1.85rem; word-break: break-word; overflow-wrap: anywhere; }
+  .heading-style-h3 { font-size: 1.55rem; word-break: break-word; overflow-wrap: anywhere; }
   .gang_component { flex-direction: column; margin-top: 5rem; }
   .gang_cta-wrapper { margin-top: 8rem; height: auto; padding-top: 10rem; }
   .gang_big-illu { max-height: 25rem; }
+}
+
+/* Tổng quát: chặn mọi text dài tràn ngang viewport */
+img, video, svg, iframe, pre, code, table {
+  max-width: 100%;
+}
+.hero_title-wrapper {
+  max-width: 100%;
 }
 
 @media screen and (max-width: 767px) {
@@ -696,8 +717,21 @@
     min-height: 360px !important;
     padding: 1rem;
   }
+  .hero_lottie {
+    /* Trên mobile: chữ "hola" nằm phía trên, thu nhỏ để không đè Pocoyo */
+    position: absolute !important;
+    top: 0 !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 100% !important;
+    max-width: 320px !important;
+    height: 160px !important;
+    z-index: 1 !important;
+  }
   .hero_image-pocoyo-gif {
     max-width: 16rem !important;
+    z-index: 2 !important;
+    margin-top: 110px !important; /* đẩy xuống dưới chữ "hola" */
   }
 
   /* === Form Feedback – mobile === */

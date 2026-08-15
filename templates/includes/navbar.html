@@ -98,6 +98,20 @@
       <!-- Danh sách link điều hướng chính (cuộn được khi dài) -->
       <div class="navbar_mobile-body">
         <nav class="navbar_mobile-nav" aria-label="Menu chính">
+          <!-- Trang chủ (link đơn, không accordion) -->
+          <a
+            href="{% if request.user.is_authenticated %}{% url 'home' %}{% else %}{% url 'login' %}{% endif %}"
+            class="navbar_mobile-link js-mobile-nav-link"
+          >
+            <span class="navbar_mobile-link-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="9 22 9 12 15 12 15 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span>Trang chủ</span>
+          </a>
+
           <!-- Tài khoản (accordion) -->
           <details class="navbar_mobile-item">
             <summary class="navbar_mobile-link navbar_mobile-summary">
@@ -114,29 +128,31 @@
               </span>
             </summary>
             <div class="navbar_mobile-subnav">
+              <div class="navbar_mobile-subnav-inner">
               {% if request.user.is_authenticated %}
-                <a href="{% url 'account' %}" class="navbar_mobile-sublink">
+                <a href="{% url 'account' %}" class="navbar_mobile-sublink js-mobile-nav-link">
                   <span class="navbar_mobile-sublink-dot"></span>
                   <span>Tài khoản</span>
                 </a>
-                <a href="{% url 'logout' %}" class="navbar_mobile-sublink">
+                <a href="{% url 'logout' %}" class="navbar_mobile-sublink js-mobile-nav-link">
                   <span class="navbar_mobile-sublink-dot"></span>
                   <span>Đăng xuất</span>
                 </a>
               {% else %}
-                <a href="{% url 'login' %}" class="navbar_mobile-sublink">
+                <a href="{% url 'login' %}" class="navbar_mobile-sublink js-mobile-nav-link">
                   <span class="navbar_mobile-sublink-dot"></span>
                   <span>Đăng nhập</span>
                 </a>
-                <a href="{% url 'register' %}" class="navbar_mobile-sublink">
+                <a href="{% url 'register' %}" class="navbar_mobile-sublink js-mobile-nav-link">
                   <span class="navbar_mobile-sublink-dot"></span>
                   <span>Đăng ký</span>
                 </a>
-                <a href="{% url 'forgot' %}" class="navbar_mobile-sublink">
+                <a href="{% url 'forgot' %}" class="navbar_mobile-sublink js-mobile-nav-link">
                   <span class="navbar_mobile-sublink-dot"></span>
                   <span>Quên mật khẩu</span>
                 </a>
               {% endif %}
+              </div>
             </div>
           </details>
 
@@ -156,11 +172,11 @@
               </span>
             </summary>
             <div class="navbar_mobile-subnav">
-              <a href="/characters/pocoyo" class="navbar_mobile-sublink">
+              <a href="/characters/pocoyo" class="navbar_mobile-sublink js-mobile-nav-link">
                 <span class="navbar_mobile-sublink-dot"></span>
                 <span>Gói miễn phí</span>
               </a>
-              <a href="/characters/bea" class="navbar_mobile-sublink">
+              <a href="/characters/bea" class="navbar_mobile-sublink js-mobile-nav-link">
                 <span class="navbar_mobile-sublink-dot"></span>
                 <span>Gói cá nhân</span>
               </a>
@@ -183,7 +199,7 @@
               </span>
             </summary>
             <div class="navbar_mobile-subnav">
-              <a href="/listen/ven-a-la-carrera" class="navbar_mobile-sublink">
+              <a href="/listen/ven-a-la-carrera" class="navbar_mobile-sublink js-mobile-nav-link">
                 <span class="navbar_mobile-sublink-dot"></span>
                 <span>Cách thao tác</span>
               </a>
@@ -206,7 +222,7 @@
               </span>
             </summary>
             <div class="navbar_mobile-subnav">
-              <a href="/make/colouring" class="navbar_mobile-sublink">
+              <a href="/make/colouring" class="navbar_mobile-sublink js-mobile-nav-link">
                 <span class="navbar_mobile-sublink-dot"></span>
                 <span>Xem chi tiết</span>
               </a>
@@ -229,7 +245,7 @@
               </span>
             </summary>
             <div class="navbar_mobile-subnav">
-              <a href="/play/apps" class="navbar_mobile-sublink">
+              <a href="/play/apps" class="navbar_mobile-sublink js-mobile-nav-link">
                 <span class="navbar_mobile-sublink-dot"></span>
                 <span>Xem chi tiết</span>
               </a>
@@ -252,7 +268,7 @@
               </span>
             </summary>
             <div class="navbar_mobile-subnav">
-              <a href="/read/the-rabbit-on-the-moon" class="navbar_mobile-sublink">
+              <a href="/read/the-rabbit-on-the-moon" class="navbar_mobile-sublink js-mobile-nav-link">
                 <span class="navbar_mobile-sublink-dot"></span>
                 <span>Mã Gif</span>
               </a>
