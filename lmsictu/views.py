@@ -5,9 +5,73 @@ from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import NoReverseMatch, reverse
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_POST
 
 
+@login_required
 def home(request):
+    return render(request, 'home.html')
+
+
+@login_required
+def tao_mon_hoc(request):
+    return render(request, 'tao-mon-hoc.html')
+
+
+@login_required
+def tao_de(request):
+    """Trang tạo đề trắc nghiệm — upload Word."""
+    return render(request, 'tao-de.html', {'page_title': 'Tạo đề trắc nghiệm'})
+
+
+@login_required
+@require_POST
+@csrf_protect
+def api_parse_word(request):
+    """
+    Nhận file Word (.docx) qua multipart POST,
+    parse trắc nghiệm và trả về JSON.
+    """
+    if 'file' not in request.FILES:
+        return JsonResponse(
+            {'success': False, 'error': 'Không có file'},
+            status=400,
+        )
+
+    f = request.FILES['file']
+    name = (f.name or '').lower()
+
+    if not name.endswith('.docx'):
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'Chỉ hỗ trợ file .docx (Word định dạng mới).',
+            },
+            status=400,
+        )
+
+    if f.size > 20 * 1024 * 1024:
+        return JsonResponse(
+            {'success': False, 'error': 'File quá lớn (tối đa 20MB).'},
+            status=400,
+        )
+
+    # Lazy import để tránh overhead khi app khởi động
+    from .word_parser import parse_docx_questions
+
+    try:
+        result = parse_docx_questions(f)
+    except Exception as e:
+        return JsonResponse(
+            {'success': False, 'error': f'Lỗi parse: {e}'},
+            status=500,
+        )
+
+    return JsonResponse(result)
+
+
+def index_view(request):
     return render(request, 'index.html')
 
 
@@ -171,4 +235,4 @@ def account_view(request):
 def logout_view(request):
     logout(request)
     messages.success(request, 'Đăng xuất thành công.')
-    return redirect('home')
+    return redirect('index')

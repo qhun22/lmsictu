@@ -1,0 +1,125 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Trang chủ QHUN22" />
+    <title>Home | QHUN22</title>
+
+    <!-- Google Fonts: Signika -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Signika:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/navbar.css' %}?v=20260815-1"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/z1.css' %}?v=20260815-1"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/z2.css' %}?v=20260815-1"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/toast.css' %}?v=20260815-1"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/home.css' %}?v=20260818-4"
+    />
+  </head>
+  <body>
+    <div class="page-wrapper">
+      {% include 'includes/navbar.html' %}
+      <main class="main-wrapper">
+        <div class="padding-global">
+          <div class="container-large">
+            <section class="learning-section" aria-label="Quản lý học tập">
+              <h2 class="learning-title">Quản Lý Học Tập</h2>
+
+              <div class="learning-grid">
+                <a
+                  href="{% url 'tao_mon_hoc' %}"
+                  class="learning-card"
+                  aria-label="Vào phần Tạo Môn"
+                >
+                  <span class="learning-icon-wrap">
+                    <svg
+                      class="learning-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M6 4.5h8l4 4v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"
+                      />
+                      <path d="M14 4.5V9h4M8 13h8M8 17h8" />
+                    </svg>
+                  </span>
+                  <h3 class="learning-card-title">Tạo Môn Học</h3>
+                </a>
+
+                <a href="{% url 'tao_de' %}" class="learning-card" aria-label="Vào phần Tạo Đề">
+                  <span class="learning-icon-wrap">
+                    <svg
+                      class="learning-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M7 3.5h7l5 5V18a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5.5a2 2 0 0 1 2-2Z"
+                      />
+                      <path d="M14 3.5V9h5M9 13h6M9 17h6" />
+                    </svg>
+                  </span>
+                  <h3 class="learning-card-title">Tạo Đề</h3>
+                </a>
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    {% if messages %}
+    <script>
+      window.__TOAST_FLASH__ = [
+        {% for message in messages %}
+        {
+          type: "{{ message.tags|default:'info' }}",
+          title: {% if message.level_tag == 'error' %}"Lỗi"{% elif message.level_tag == 'success' %}"Thành công"{% elif message.level_tag == 'warning' %}"Cảnh báo"{% else %}"Thông tin"{% endif %},
+          message: "{{ message|escapejs }}",
+          duration_ms: 5000
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+      ];
+    </script>
+    {% endif %}
+
+    <script src="{% static 'assets/js/toast.js' %}?v=20260815-1"></script>
+    <script src="{% static 'assets/js/z1.js' %}?v=20260815-1"></script>
+    <script src="{% static 'assets/js/z2.js' %}?v=20260815-1"></script>
+    <script src="{% static 'assets/js/home.js' %}?v=20260816-3"></script>
+  </body>
+</html>

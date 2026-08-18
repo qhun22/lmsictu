@@ -1,0 +1,250 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Tạo đề trắc nghiệm | QHUN22" />
+    <meta name="csrf-token" content="{{ csrf_token }}" />
+    <title>Tạo đề trắc nghiệm | QHUN22</title>
+
+    <!-- Google Fonts: Signika -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Signika:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/navbar.css' %}?v=20260818-1"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/tao-mon-hoc.css' %}?v=20260818-7"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/tao-de.css' %}?v=20260818-11"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/toast.css' %}?v=20260818-1"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/confirm.css' %}?v=20260818-1"
+    />
+  </head>
+  <body class="tiao-mon-hoc-body">
+
+    <!-- ── STICKY HEADER ── -->
+    <header class="smh-header" role="banner">
+      <div class="smh-header-inner">
+        <a
+          href="{% url 'home' %}"
+          class="smh-back"
+          aria-label="Quay lại trang chủ"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+        </a>
+        <h1 class="smh-title">Tạo đề trắc nghiệm</h1>
+      </div>
+    </header>
+
+    <main class="smh-main">
+      <div class="tao-de-page-wrapper">
+        <div class="tao-de-grid">
+
+          <!-- ╔══════════════════════════════════════╗ -->
+          <!-- ║  CỘT TRÁI (380px)                    ║ -->
+          <!-- ║  Form điều khiển + Upload            ║ -->
+          <!-- ╚══════════════════════════════════════╝ -->
+          <div class="left-col">
+
+            <!-- Header / Badge số câu -->
+            <div class="smh-create-card">
+              <div class="smh-count">
+                <span class="smh-count-num" id="tq-count-num">0</span>
+                <span class="smh-count-label">Câu hỏi</span>
+              </div>
+
+              <div class="tq-card-title">Tạo đề trắc nghiệm</div>
+              <p class="tq-card-sub">Chọn môn học & tuần học, sau đó tải file Word có đáp án đúng được <strong style="color:#dc2626">bôi đỏ</strong>.</p>
+            </div>
+
+            <!-- Chọn môn học -->
+            <div class="smh-create-card">
+              <label class="smh-form-label" for="tq-subject-select">Chọn môn học</label>
+              <div class="smh-form-row">
+                <select
+                  id="tq-subject-select"
+                  class="tq-select"
+                  aria-label="Chọn môn học"
+                >
+                  <option value="">-- Chọn môn học --</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Chọn tuần học -->
+            <div class="smh-create-card">
+              <label class="smh-form-label" for="tq-week-select">Chọn tuần học</label>
+              <div class="smh-form-row">
+                <select
+                  id="tq-week-select"
+                  class="tq-select"
+                  aria-label="Chọn tuần học"
+                  disabled
+                >
+                  <option value="">-- Chọn tuần học --</option>
+                </select>
+              </div>
+              <p class="tq-hint" id="tq-week-hint">
+                Chưa có tuần học. Vào
+                <a href="{% url 'tao_mon_hoc' %}">Tạo môn học</a> để thêm.
+              </p>
+            </div>
+
+            <!-- Upload Word -->
+            <div class="smh-create-card">
+              <label class="smh-form-label">Tải file Word trắc nghiệm</label>
+              <div
+                class="tq-dropzone"
+                id="tq-dropzone"
+                role="button"
+                tabindex="0"
+                aria-label="Kéo thả hoặc nhấn để chọn file Word"
+              >
+                <div class="tq-dropzone-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/>
+                    <line x1="9" y1="15" x2="15" y2="15"/>
+                  </svg>
+                </div>
+                <div class="tq-dropzone-text">
+                  <p class="tq-dropzone-title">Kéo thả file Word vào đây</p>
+                  <p class="tq-dropzone-sub">hoặc <span class="tq-link">chọn từ máy</span></p>
+                </div>
+                <input
+                  type="file"
+                  id="tq-file-input"
+                  accept=".docx"
+                  hidden
+                />
+              </div>
+              <div class="tq-file-info" id="tq-file-info" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span class="tq-file-name" id="tq-file-name"></span>
+                <button
+                  type="button"
+                  class="tq-file-remove"
+                  id="tq-file-remove"
+                  aria-label="Xóa file"
+                  title="Xóa file"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="smh-create-card">
+              <div class="tq-actions">
+                <button
+                  type="button"
+                  class="smh-btn smh-btn--primary"
+                  id="tq-btn-parse"
+                  disabled
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Parse câu hỏi
+                </button>
+                <button
+                  type="button"
+                  class="smh-btn smh-btn--ghost"
+                  id="tq-btn-clear"
+                  disabled
+                >
+                  Xóa hết
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ╔══════════════════════════════════════╗ -->
+          <!-- ║  CỘT PHẢI (1fr)                       ║ -->
+          <!-- ║  Preview danh sách câu hỏi            ║ -->
+          <!-- ╚══════════════════════════════════════╝ -->
+          <div class="right-col">
+            <div class="tq-content-header">
+              <h2 class="tq-section-title">Câu hỏi trắc nghiệm</h2>
+              <span class="tq-qstats" id="tq-toolbar-stat" hidden>
+                <span class="tq-stat tq-stat--single" title="Chỉ 1 đáp án đúng">
+                  <span class="tq-stat-num" id="tq-stat-single">0</span> một đáp án
+                </span>
+                <span class="tq-stat tq-stat--multi" title="Nhiều đáp án đúng">
+                  <span class="tq-stat-num" id="tq-stat-multiple">0</span> nhiều đáp án
+                </span>
+                <span class="tq-stat tq-stat--warn" id="tq-stat-unknown-wrap" title="Chưa xác định loại">
+                  <span class="tq-stat-num" id="tq-stat-unknown">0</span> chưa rõ
+                </span>
+                <span class="tq-stat tq-stat--duplicate" id="tq-stat-duplicate-wrap" title="Câu trùng lặp">
+                  <span class="tq-stat-num" id="tq-stat-duplicate">0</span> trùng
+                </span>
+                <span class="tq-stat tq-stat--ok" title="Hợp lệ (≥2 option + có đáp án)">
+                  <span class="tq-stat-num" id="tq-stat-ok">0</span> hợp lệ
+                </span>
+                <span class="tq-stat tq-stat--warn" id="tq-stat-warn-wrap" hidden>
+                  <span class="tq-stat-num" id="tq-stat-warn">0</span> cảnh báo
+                </span>
+              </span>
+            </div>
+
+            <!-- Cảnh báo parser (nếu có) -->
+            <div class="tq-warnings" id="tq-warnings" hidden></div>
+
+            <ul id="tq-list" class="tq-list"></ul>
+
+            <!-- ── EMPTY STATE ── -->
+            <div id="tq-empty" class="smh-empty" aria-live="polite">
+              <div class="smh-empty-icon">
+                <i data-lucide="file-text" class="tq-icon tq-icon--xl"></i>
+              </div>
+              <p class="smh-empty-title">Chưa có câu hỏi nào</p>
+              <p class="smh-empty-sub">Kéo thả file Word (đáp án đúng đã được bôi đỏ) vào khung bên trái, sau đó nhấn <strong>Parse câu hỏi</strong> để bắt đầu.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+    <!-- Icon library: Lucide (không dùng emoji / icon cứng) -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="{% static 'assets/js/toast.js' %}?v=20260818-1"></script>
+    <script src="{% static 'assets/js/confirm.js' %}?v=20260818-1"></script>
+    <script src="{% static 'assets/js/tao-de.js' %}?v=20260818-8"></script>
+  </body>
+</html>

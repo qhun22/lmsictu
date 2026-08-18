@@ -33,7 +33,7 @@
       </div>
 
       <a
-        href="{% url 'home' %}"
+        href="{% if request.user.is_authenticated %}{% url 'home' %}{% else %}{% url 'index' %}{% endif %}"
         aria-current="page"
         class="navbar_logo-link w-nav-brand w--current"
       >
