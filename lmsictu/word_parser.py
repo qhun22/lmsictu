@@ -15,6 +15,7 @@ Hỗ trợ các định dạng phổ biến:
 
 import re
 from typing import Optional
+import unicodedata
 
 from docx import Document
 from docx.shared import RGBColor
@@ -77,7 +78,7 @@ RE_FILL_BLANK = re.compile(
     re.IGNORECASE,
 )
 
-# Marker EXACT (extract ra kh�i text để hiển thị riêng)
+# Marker EXACT (extract ra khối text để hiển thị riêng)
 # Strategy: tìm cụm RE_FILL_BLANK/RE_ORDERING, lấy phần đầu câu (từ start đến hết dấu "."
 # đầu tiên hoặc ":"). Phần còn lại là body.
 def _split_marker(text: str, marker_pattern) -> tuple:
@@ -172,7 +173,9 @@ def _analyze_paragraph(paragraph) -> dict:
         'first_red_label': Optional[str],  # nếu dòng là đáp án (A./B./...) và phần label thuộc run đỏ
       }
     """
-    full_text = paragraph.text
+    # Sanitize Unicode: NFC normalize + strip zero-width chars
+    full_text = unicodedata.normalize('NFC', paragraph.text)
+    full_text = re.sub(r'[\u200B-\u200D\u2060\uFEFF]', '', full_text)
     has_red = False
     red_parts = []
     first_red_label = None

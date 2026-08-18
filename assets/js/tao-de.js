@@ -484,7 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="tq-special tq-special--order">
           ${markerBlock}
           <div class="tq-order-row">
-            <span class="tq-order-label">T� lộn xộn</span>
+            <span class="tq-order-label">Từ lộn xộn</span>
             <div class="tq-order-tiles">
               ${words.length
                 ? words.map((w) => `<span class="tq-order-tile">${escapeHtml(w)}</span>`).join('')
@@ -511,10 +511,24 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderQuestions(items, warnings) {
     questions = items;
 
-    // Stats
-    const validCount = items.filter(
-      (q) => q.options && q.options.length >= 2 && q.answer,
-    ).length;
+    // Stats — câu hợp lệ:
+    //   - choice: ≥2 options + có answer
+    //   - ordering: có ordering_words + ordering_sequence
+    //   - fill_in_blank: có fill_blank_answer
+    //   - true_false: có answer
+    const validCount = items.filter((q) => {
+      if (q.type === 'ordering') {
+        return (q.ordering_words || []).length > 0
+          && (q.ordering_sequence || []).length > 0;
+      }
+      if (q.type === 'fill_in_blank') {
+        return !!q.fill_blank_answer;
+      }
+      if (q.type === 'true_false') {
+        return !!q.answer;
+      }
+      return q.options && q.options.length >= 2 && q.answer;
+    }).length;
     const warnCount = items.length - validCount;
 
     // Đếm theo loại câu hỏi
@@ -574,17 +588,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const typeClass = `tq-type--${q.type || 'unknown'}`;
       const typeLabel = q.type_label || 'Chưa xác định';
       const correctLabels = (q.correct_options || []).map((o) => o.label).join(', ');
+      const isSpecial = q.type === 'ordering' || q.type === 'fill_in_blank';
 
       // STT hiển thị = thứ tự thật trong danh sách (liên tục 1, 2, 3...)
       const displayNum = idx + 1;
       const showOriginal =
         q.number != null && q.number !== displayNum;
 
+      // Hiển thị text câu hỏi. Nếu text rỗng, ưu tiên marker; nếu cả 2 rỗng → placeholder.
+      const displayText = q.text || q.marker || '';
+      const textHtml = displayText
+        ? escapeHtml(displayText)
+        : '<em class="tq-text-empty">(Không có nội dung)</em>';
+
       return `
         <li class="tq-question ${q.isDuplicate ? 'is-duplicate' : ''}" data-qid="${q.id}">
           <div class="tq-question-header">
             <span class="tq-question-num">${displayNum}</span>
-            <p class="tq-question-text">${escapeHtml(q.text || '(Không có nội dung)')}</p>
+            <p class="tq-question-text">${textHtml}</p>
             <div class="tq-question-actions">
               <button
                 type="button"
@@ -619,9 +640,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ${showOriginal
               ? `<span class="tq-original-num" title="STT gốc trong file Word">#${q.number}</span>`
               : ''}
-            ${correctLabels
-              ? `<span class="tq-answer">Đáp án đúng: <strong>${escapeHtml(correctLabels)}</strong></span>`
-              : `<span class="tq-answer tq-answer--missing">Chưa xác định đáp án đúng</span>`
+            ${isSpecial
+              ? ''  // ordering/fill đã hiển thị đáp án trong renderSpecial
+              : (correctLabels
+                ? `<span class="tq-answer">Đáp án đúng: <strong>${escapeHtml(correctLabels)}</strong></span>`
+                : `<span class="tq-answer tq-answer--missing">Chưa xác định đáp án đúng</span>`)
             }
           </div>
 

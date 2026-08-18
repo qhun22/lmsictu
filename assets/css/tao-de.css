@@ -483,6 +483,13 @@
   word-break: break-word;
 }
 
+.tq-text-empty {
+  font-style: italic;
+  font-weight: 500;
+  color: var(--s-text-muted, #94a3b8);
+  font-size: 0.85rem;
+}
+
 .tq-question-answer {
   flex-shrink: 0;
   display: inline-flex;
