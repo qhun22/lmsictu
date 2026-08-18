@@ -26,7 +26,7 @@
     />
     <link
       rel="stylesheet"
-      href="{% static 'assets/css/tao-de.css' %}?v=20260818-11"
+      href="{% static 'assets/css/tao-de.css' %}?v=20260818-14"
     />
     <link
       rel="stylesheet"
@@ -201,11 +201,20 @@
             <div class="tq-content-header">
               <h2 class="tq-section-title">Câu hỏi trắc nghiệm</h2>
               <span class="tq-qstats" id="tq-toolbar-stat" hidden>
-                <span class="tq-stat tq-stat--single" title="Chỉ 1 đáp án đúng">
+                <span class="tq-stat tq-stat--single" id="tq-stat-single-wrap" title="Chỉ 1 đáp án đúng" hidden>
                   <span class="tq-stat-num" id="tq-stat-single">0</span> một đáp án
                 </span>
-                <span class="tq-stat tq-stat--multi" title="Nhiều đáp án đúng">
+                <span class="tq-stat tq-stat--multi" id="tq-stat-multiple-wrap" title="Nhiều đáp án đúng" hidden>
                   <span class="tq-stat-num" id="tq-stat-multiple">0</span> nhiều đáp án
+                </span>
+                <span class="tq-stat tq-stat--tf" id="tq-stat-tf-wrap" title="Đúng / Sai" hidden>
+                  <span class="tq-stat-num" id="tq-stat-tf">0</span> đúng/sai
+                </span>
+                <span class="tq-stat tq-stat--fill" id="tq-stat-fill-wrap" title="Điền từ vào chỗ trống" hidden>
+                  <span class="tq-stat-num" id="tq-stat-fill">0</span> điền từ
+                </span>
+                <span class="tq-stat tq-stat--order" id="tq-stat-order-wrap" title="Sắp xếp từ" hidden>
+                  <span class="tq-stat-num" id="tq-stat-order">0</span> sắp xếp
                 </span>
                 <span class="tq-stat tq-stat--warn" id="tq-stat-unknown-wrap" title="Chưa xác định loại">
                   <span class="tq-stat-num" id="tq-stat-unknown">0</span> chưa rõ
@@ -245,6 +254,6 @@
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="{% static 'assets/js/toast.js' %}?v=20260818-1"></script>
     <script src="{% static 'assets/js/confirm.js' %}?v=20260818-1"></script>
-    <script src="{% static 'assets/js/tao-de.js' %}?v=20260818-8"></script>
+    <script src="{% static 'assets/js/tao-de.js' %}?v=20260818-11"></script>
   </body>
 </html>

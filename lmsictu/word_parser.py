@@ -46,6 +46,78 @@ RE_CORRECT_PREFIX = re.compile(
     r'^\s*[\*✓✔\u2713\u2714]\s*([A-Ha-h])[\.\)\-\:\s]\s*(.+?)\s*$'
 )
 
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Regex cho 3 dạng câu hỏi đặc biệt                            ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+# true_false: "đúng hay sai", "đúng hoặc sai", "đúng không?", "true or false"
+RE_TRUE_FALSE = re.compile(
+    r'(đúng\s*(?:hay|hoặc|hay\s+là)?\s*sai|true\s*or\s*false|'
+    r'đúng\s+không\s*\?|đúng\s+hay\s+sai|true\s+or\s+false|'
+    r'đúng\s*\?|sai\s*\?)',
+    re.IGNORECASE,
+)
+
+# ordering (sắp xếp): "sắp xếp", "sắp xếp lại câu", "rearrange", "reorder"
+RE_ORDERING = re.compile(
+    r'(sắp\s*xếp\s*(?:lại\s*)?(?:câu|các\s*từ|các\s*đáp\s*án|cho\s*đúng)(?:\s+sau)?(?:'
+    r'\s+sao\s*cho\s*đúng(?:\s+cấu\s*trúc)?|'
+    r'\s+theo\s*đúng\s*thứ\s*tự|'
+    r'\s+cho\s*đúng|'
+    r'\s+cấu\s*trúc'
+    r')?|rearrange(?:\s+the\s*sentence)?|reorder(?:\s+the\s*words?)|sắp\s*xếp\s*theo)',
+    re.IGNORECASE,
+)
+
+# fill_in_blank (điền từ): "điền từ", "điền vào chỗ trống", "fill in", "fill in the blank"
+RE_FILL_BLANK = re.compile(
+    r'(điền\s*từ\s*(?:thích\s*hợp\s*)?(?:vào\s*)?(?:chỗ\s*trống|chỗ\s*trống\s*sau|'
+    r'vào\s*chỗ|khoảng\s*trống)(?:\s+sau)?|fill\s*in(?:\s*the\s*blank)?|'
+    r'điền\s*vào\s*chỗ\s*trống)',
+    re.IGNORECASE,
+)
+
+# Marker EXACT (extract ra kh�i text để hiển thị riêng)
+# Strategy: tìm cụm RE_FILL_BLANK/RE_ORDERING, lấy phần đầu câu (từ start đến hết dấu "."
+# đầu tiên hoặc ":"). Phần còn lại là body.
+def _split_marker(text: str, marker_pattern) -> tuple:
+    """
+    Tìm marker (đoạn khớp marker_pattern) trong text, trả về:
+      (marker_text, body_text)
+    marker_text lấy phần đầu CÂU (đến dấu "." hoặc ":" đầu tiên).
+    Nếu không khớp → trả ('', text).
+    """
+    m = marker_pattern.search(text)
+    if not m:
+        return '', text
+    marker_start, marker_end = m.span()
+    # Tìm dấu phân cách câu đầu tiên sau marker_end
+    suffix = text[marker_end:]
+    cut = None
+    for i, ch in enumerate(suffix):
+        if ch in '.!?':
+            cut = marker_end + i + 1
+            break
+    # Không có dấu → lấy toàn bộ phần còn lại làm marker
+    if cut is None:
+        cut = marker_end
+    return text[:cut].strip(), text[cut:].strip()
+
+
+RE_FILL_BLANK_MARKER = RE_FILL_BLANK
+RE_ORDERING_MARKER = RE_ORDERING
+
+# Chỗ trống trong text: "___", "[ ]", "()", "…", "______"
+RE_BLANK_PLACEHOLDER = re.compile(r'_{3,}|\[\s*\]|\(\s*\)|…+|\.\.\.+')
+
+# Dòng đáp án ordering: tiền tố `**` = đáp án đúng, `*` = từ lẻ
+# (chấp nhận cả các bullet ký tự hay gặp trong Word: *, •, ·, ›, –)
+RE_ORDERING_ANSWER = re.compile(r'^\s*\*\*(.+)$')
+RE_ORDERING_WORDS = re.compile(r'^\s*(?!\*\*)[*•·›–\-]\s*(.+)$')
+
+# Dòng đáp án fill (1 bullet đầu dòng + nội dung ngắn — KHÔNG phải A./B./C./...)
+RE_FILL_ANSWER = re.compile(r'^\s*[*•·›–\-]\s*(?![A-Ha-h][\.\)])(.+?)\s*$')
+
 
 # ╔══════════════════════════════════════════════════════════════╗
 # ║  Màu sắc — phân loại "đỏ"                                      ║
@@ -184,22 +256,112 @@ def _parse_option_line(analysis: dict) -> Optional[dict]:
 QUESTION_TYPES = {
     'single_choice': '1 đáp án đúng',
     'multiple_response': 'Nhiều đáp án đúng',
+    'true_false': 'Đúng / Sai',
+    'fill_in_blank': 'Điền từ vào chỗ trống',
+    'ordering': 'Sắp xếp từ',
     'unknown': 'Chưa xác định',
 }
 
 
-def _classify_question(options: list) -> tuple:
+def _ensure_special_flags(current: dict) -> None:
     """
-    Phân loại dạng câu hỏi dựa trên số đáp án đúng trong options.
-    Returns: (type, label, correct_options_list)
-      - 1 đáp án đúng → 'single_choice', '1 đáp án đúng'
-      - ≥2 đáp án đúng → 'multiple_response', 'Nhiều đáp án đúng'
-      - 0 đáp án đúng  → 'unknown', 'Chưa xác định'
+    Re-scan cờ đặc biệt (is_ordering, is_fill_in_blank, is_true_false) dựa
+    trên text HIỆN TẠI của current. Gọi mỗi khi text được ghép/đổi.
 
-    Lưu ý: chỉ phân biệt single/multiple dựa trên số lượng correct,
-    CÁC DẠNG KHÁC (true_false, fill_in_blank, drag_drop, ordering)
-    sẽ được hỗ trợ ở bước tiếp theo.
+    Lý do: trong Word, tiêu đề dạng đặc biệt có thể tách thành nhiều
+    paragraph (Câu 55: / Điền từ thích hợp vào chỗ trống sau: / Bác Hồ là
+    người ___.). Lúc q_match parse 'Câu 55:' thì text='' nên không detect
+    được marker. Phải quét lại sau khi text đã được ghép.
     """
+    if current is None or not current.get('text'):
+        return
+    text = current['text']
+
+    # ── Tách marker (1 lần, ưu tiên fill > order) ──
+    # Kiểm tra cờ trên FULL text TRƯỚC khi tách
+    if not current.get('is_ordering') and RE_ORDERING.search(text):
+        current['is_ordering'] = True
+    if not current.get('is_fill_in_blank') and RE_FILL_BLANK.search(text):
+        current['is_fill_in_blank'] = True
+    if not current.get('is_true_false') and RE_TRUE_FALSE.search(text):
+        current['is_true_false'] = True
+
+    if not current.get('marker'):
+        # Fill
+        marker, body = _split_marker(text, RE_FILL_BLANK_MARKER)
+        if marker:
+            current['marker'] = marker
+            current['text'] = body
+            text = body
+        else:
+            # Ordering
+            marker, body = _split_marker(text, RE_ORDERING_MARKER)
+            if marker:
+                current['marker'] = marker
+                current['text'] = body
+                text = body
+
+
+def _classify_question(current: dict) -> tuple:
+    """
+    Phân loại dạng câu hỏi dựa trên:
+      1. Marker trong text (câu hỏi)
+      2. Cấu trúc options + extra fields
+      3. Fallback: đếm số đáp án đúng
+
+    Returns: (type, label, correct_options_list)
+    Extra fields nếu có (current.get):
+      - 'is_true_false': bool
+      - 'is_ordering': bool
+      - 'is_fill_in_blank': bool
+      - 'ordering_words': list[str]    (các từ lẻ)
+      - 'ordering_sequence': list[str] (thứ tự đúng)
+      - 'fill_blank_text': str         (text chỗ trống)
+      - 'fill_blank_answer': str       (đáp án điền vào)
+    """
+    text = current.get('text', '') or ''
+    options = current.get('options', [])
+
+    # ── ƯU TIÊN 1: nếu parser đã set cờ đặc biệt → dùng luôn ──
+    if current.get('is_true_false'):
+        return 'true_false', QUESTION_TYPES['true_false'], [
+            o for o in options if o.get('correct')
+        ]
+    if current.get('is_ordering'):
+        # ordering thường có 2 dòng * / **, không phải options A/B/C
+        # Nhưng vẫn trả correct_options = rỗng
+        return 'ordering', QUESTION_TYPES['ordering'], []
+
+    if current.get('is_fill_in_blank'):
+        return 'fill_in_blank', QUESTION_TYPES['fill_in_blank'], []
+
+    # ── ƯU TIÊN 2: detect từ TEXT câu hỏi ──
+    if RE_TRUE_FALSE.search(text):
+        return 'true_false', QUESTION_TYPES['true_false'], [
+            o for o in options if o.get('correct')
+        ]
+    if RE_ORDERING.search(text):
+        return 'ordering', QUESTION_TYPES['ordering'], []
+    if RE_FILL_BLANK.search(text):
+        return 'fill_in_blank', QUESTION_TYPES['fill_in_blank'], []
+
+    # ── ƯU TIÊN 3: detect từ CẤU TRÚC ──
+    # true_false: có đúng 2 option mà 1 trong 2 chứa "đúng" hoặc "sai"
+    if len(options) == 2:
+        opts_text = ' '.join(o.get('text', '').lower() for o in options)
+        if (
+            ('đúng' in opts_text and 'sai' in opts_text)
+            or ('true' in opts_text and 'false' in opts_text)
+        ):
+            return 'true_false', QUESTION_TYPES['true_false'], [
+                o for o in options if o.get('correct')
+            ]
+
+    # fill_in_blank: có `[ ]`, `___`, `…` trong text
+    if RE_BLANK_PLACEHOLDER.search(text):
+        return 'fill_in_blank', QUESTION_TYPES['fill_in_blank'], []
+
+    # ── FALLBACK: single/multiple dựa vào số đáp án đúng ──
     correct_opts = [o for o in options if o.get('correct')]
     n = len(correct_opts)
     if n == 1:
@@ -221,9 +383,19 @@ def parse_docx_questions(file) -> dict:
               'text': '...',
               'options': [{'label': 'A', 'text': '...', 'correct': False}, ...],
               'answer': 'B' (optional),
-              'type': 'single_choice' | 'multiple_response' | 'unknown',
-              'type_label': '1 đáp án đúng' | 'Nhiều đáp án đúng' | 'Chưa xác định',
-              'correct_options': [...]
+              'type': 'single_choice' | 'multiple_response' | 'true_false'
+                     | 'fill_in_blank' | 'ordering' | 'unknown',
+              'type_label': '1 đáp án đúng' | 'Nhiều đáp án đúng' | 'Đúng / Sai'
+                          | 'Điền từ vào chỗ trống' | 'Sắp xếp từ' | 'Chưa xác định',
+              'correct_options': [...],
+              # Extra fields cho 3 dạng đặc biệt
+              'is_true_false': bool,
+              'is_ordering': bool,
+              'is_fill_in_blank': bool,
+              'ordering_words': ['Huy', 'name', ...] | None,
+              'ordering_sequence': ['My', 'name', ...] | None,
+              'fill_blank_answer': 'việt nam' | None,
+            },
             },
             ...
           ],
@@ -242,12 +414,31 @@ def parse_docx_questions(file) -> dict:
         }
 
     # Phân tích run-level cho tất cả paragraph (kèm cả paragraph rỗng bỏ qua)
+    # Lưu ý: 1 paragraph có \n (line break) → split thành nhiều entry
     paragraphs_data = []
     for p in doc.paragraphs:
-        analysis = _analyze_paragraph(p)
-        if not analysis['text'].strip():
-            continue
-        paragraphs_data.append(analysis)
+        full_text = p.text
+        # Nếu có \n (Shift+Enter trong Word) → split thành các dòng
+        if '\n' in full_text:
+            lines = full_text.split('\n')
+            for line in lines:
+                if not line.strip():
+                    continue
+                # Tạo 1 dict analysis "đơn giản" cho từng dòng
+                # (giữ red/first_red_label từ paragraph gốc nếu match)
+                base = _analyze_paragraph(p)
+                line_analysis = {
+                    'text': line,
+                    'red': base['red'],
+                    'red_text': base['red_text'],
+                    'first_red_label': base['first_red_label'],
+                }
+                paragraphs_data.append(line_analysis)
+        else:
+            analysis = _analyze_paragraph(p)
+            if not analysis['text'].strip():
+                continue
+            paragraphs_data.append(analysis)
 
     questions = []
     current = None
@@ -269,10 +460,57 @@ def parse_docx_questions(file) -> dict:
                 None,
             )
 
-        # ── Phân loại dạng câu hỏi dựa trên số đáp án đúng ──
-        current['type'], current['type_label'], current['correct_options'] = _classify_question(
-            current['options'],
-        )
+        # ── Tách các dòng * / ** bị lẫn trong body (cho ordering) ──
+        # Nếu body có chứa dòng *word|... và **word|..., tách chúng ra.
+        if current.get('text'):
+            text_body = current['text']
+
+            # Tìm **word|word|word (priority 1 — match chính xác đầu dòng)
+            # Trong body có thể có ** ở GIỮA — tìm substring bắt đầu bằng **
+            # Cú pháp an toàn: tìm ` **text ` với khoảng trắng trước, hoặc đầu chuỗi
+            seq_matches = list(re.finditer(r'(?:^|\s)\*\*(\S+)', text_body))
+            if seq_matches:
+                last = seq_matches[-1]
+                seq_raw = last.group(1)
+                current.setdefault('ordering_sequence', [w.strip() for w in seq_raw.split('|') if w.strip()])
+                text_body = (text_body[:last.start()] + text_body[last.end():]).strip()
+
+            # Tìm *word|word|word (priority 2 — phải là ` *text` không có ** theo sau)
+            # Cần multi-word (VD: *Huy|is|name) — [^|*]+ cho mỗi nhóm
+            words_matches = list(re.finditer(
+                r'(?:^|\s)\*(?!\*)(\S+(?:\s+\S+)*)',
+                text_body,
+            ))
+            if words_matches:
+                last = words_matches[-1]
+                words_raw = last.group(1)
+                # Chỉ lấy nếu là ordering pattern (chứa | hoặc nhiều từ)
+                if '|' in words_raw or ' ' in words_raw:
+                    current.setdefault('ordering_words', [w.strip() for w in words_raw.split('|') if w.strip()])
+                    text_body = (text_body[:last.start()] + text_body[last.end():]).strip()
+
+            # Tìm *Việt Nam (fill_in_blank answer) — cho phép nhiều từ
+            fill_matches = list(re.finditer(
+                r'(?:^|\s)\*(?!\*)(?![A-Ha-h][\.\)])([^|*]+(?:\s+[^|*]+)*)',
+                text_body,
+            ))
+            if fill_matches and not current.get('fill_blank_answer'):
+                last = fill_matches[-1]
+                ans = last.group(1).strip()
+                # Skip nếu ans trùng với ordering_words (đã match rồi)
+                if not current.get('ordering_words') or ans.split('|')[0].strip() not in current['ordering_words']:
+                    current['fill_blank_answer'] = ans
+                    text_body = (text_body[:last.start()] + text_body[last.end():]).strip()
+
+            # Strip leading colon ":" nếu còn sót
+            text_body = re.sub(r'^[\:\.\s]+', '', text_body).strip()
+            current['text'] = text_body
+
+        # ── Phân loại dạng câu hỏi (text + cấu trúc) ──
+        qtype, qlabel, qcorrect = _classify_question(current)
+        current['type'] = qtype
+        current['type_label'] = qlabel
+        current['correct_options'] = qcorrect
 
         questions.append(current)
         current = None
@@ -301,19 +539,94 @@ def parse_docx_questions(file) -> dict:
         q_match = RE_QUESTION_START.match(line)
         if q_match:
             commit_current()
+            qtext = q_match.group(2).strip()
+            # Pre-scan: nếu marker đặc biệt có ngay trong text → set cờ luôn
+            is_ord = bool(RE_ORDERING.search(qtext))
+            is_fib = bool(RE_FILL_BLANK.search(qtext))
+            is_tf = bool(RE_TRUE_FALSE.search(qtext))
             current = {
                 'number': int(q_match.group(1)),
-                'text': q_match.group(2).strip(),
+                'text': qtext,
+                'marker': None,
                 'options': [],
                 'answer': None,
                 'type': 'unknown',
                 'type_label': QUESTION_TYPES['unknown'],
                 'correct_options': [],
+                'is_true_false': is_tf,
+                'is_ordering': is_ord,
+                'is_fill_in_blank': is_fib,
+                'ordering_words': None,
+                'ordering_sequence': None,
+                'fill_blank_answer': None,
+            }
+            # Nếu là ordering → next iteration có thể là dòng * / **
+            continue
+
+        # ╔══════════════════════════════════════════════════════════════╗
+        # ║  PARSE CHO 3 DẠNG ĐẶC BIỆT                                 ║
+        # ║  (Bắt buộc CHECK trước cả option parser)                    ║
+        # ╚══════════════════════════════════════════════════════════════╝
+
+        # ── Nếu gặp câu hỏi mới trong khi đang parse đặc biệt → commit + khởi tạo ──
+        if current is not None and (
+            current.get('is_ordering') or current.get('is_fill_in_blank')
+        ) and RE_QUESTION_START.match(line):
+            commit_current()
+            qm = RE_QUESTION_START.match(line)
+            current = {
+                'number': int(qm.group(1)),
+                'text': qm.group(2).strip(),
+                'marker': None,
+                'options': [],
+                'answer': None,
+                'type': 'unknown',
+                'type_label': QUESTION_TYPES['unknown'],
+                'correct_options': [],
+                'is_true_false': False,
+                'is_ordering': False,
+                'is_fill_in_blank': False,
+                'ordering_words': None,
+                'ordering_sequence': None,
+                'fill_blank_answer': None,
             }
             continue
 
+        # ── ORDERING: dòng ** = đáp án đúng, dòng * (không **) = từ lộn xộn ──
+        if current is not None and current.get('is_ordering'):
+            ord_ans = RE_ORDERING_ANSWER.match(line)
+            ord_words = RE_ORDERING_WORDS.match(line)
+            if ord_ans:
+                seq = [w.strip() for w in ord_ans.group(1).split('|') if w.strip()]
+                current['ordering_sequence'] = seq
+                continue
+            if ord_words:
+                words = [w.strip() for w in ord_words.group(1).split('|') if w.strip()]
+                current['ordering_words'] = words
+                continue
+            # Nếu là text wrap → ghép vào text câu hỏi
+            if current['text'] and not current.get('ordering_words') and not current.get('ordering_sequence'):
+                current['text'] += ' ' + line
+            continue
+
+        # ── FILL_IN_BLANK: sau câu hỏi có dòng * + đáp án ──
+        if current is not None and current.get('is_fill_in_blank'):
+            fill_match = RE_FILL_ANSWER.match(line)
+            if fill_match:
+                current['fill_blank_answer'] = fill_match.group(1).strip()
+                continue
+            # Mọi dòng khác: ghép vào text câu hỏi (text wrap)
+            if current['text']:
+                current['text'] += ' ' + line
+            else:
+                current['text'] = line
+            continue
+
+        # ── True/False: có dòng mới với 2 option Đúng/Sai → set cờ đã có option rồi thì OK ──
+        # (true_false không cần parse riêng; classifier sẽ nhận diện sau)
+
         # 3. Đang trong câu hỏi mà chưa có options → ghép text hoặc bắt đầu option
-        if current is not None and not current['options']:
+        if current is not None and not current['options'] and not current.get('is_ordering') and not current.get('is_fill_in_blank'):
             opt = _parse_option_line(analysis)
             if opt:
                 current['options'].append(opt)
@@ -322,10 +635,12 @@ def parse_docx_questions(file) -> dict:
                     current['text'] += ' ' + line
                 else:
                     current['text'] = line
+                # Re-scan cờ đặc biệt SAU khi text đổi (Word có thể tách text + marker ở dòng riêng)
+                _ensure_special_flags(current)
             continue
 
         # 4. Đang có câu hỏi + đã có options → tiếp tục nạp options
-        if current is not None:
+        if current is not None and not current.get('is_ordering') and not current.get('is_fill_in_blank'):
             opt = _parse_option_line(analysis)
             if opt:
                 current['options'].append(opt)
@@ -343,9 +658,33 @@ def parse_docx_questions(file) -> dict:
 
     # Báo warning nếu câu không có option / không có đáp án
     for q in questions:
+        qtype = q.get('type')
+        # 3 dạng đặc biệt không bắt buộc ≥2 options
+        if qtype in ('ordering', 'fill_in_blank'):
+            if q.get('is_ordering'):
+                if not q.get('ordering_words') and not q.get('ordering_sequence'):
+                    warnings.append(
+                        f"Câu {q['number']}: thiếu cả dãy từ lộn xộn (*) lẫn đáp án (**). "
+                        f"Đáp án nên có 2 dòng: dòng '*word1|word2|...' và dòng '**word1|word2|...'"
+                    )
+                elif not q.get('ordering_words'):
+                    warnings.append(
+                        f"Câu {q['number']}: thiếu dãy từ lộn xộn (*) — chỉ có dòng đáp án. "
+                        f"Thêm dòng '*word1|word2|...' để hiển thị các từ cần sắp xếp."
+                    )
+                elif not q.get('ordering_sequence'):
+                    warnings.append(f"Câu {q['number']}: thiếu đáp án (**) trong ordering")
+            elif q.get('is_fill_in_blank'):
+                if not q.get('fill_blank_answer'):
+                    warnings.append(
+                        f"Câu {q['number']}: chưa xác định đáp án điền vào chỗ trống. "
+                        f"Đáp án cần đứng trên 1 dòng riêng ở đầu có dấu * (vd: *Việt Nam), "
+                        f"• hoặc - để parser nhận diện."
+                    )
+            continue
         if len(q['options']) < 2:
             warnings.append(f"Câu {q['number']}: chỉ có {len(q['options'])} đáp án")
-        if not q['answer']:
+        if not q.get('answer'):
             warnings.append(f"Câu {q['number']}: chưa xác định được đáp án đúng")
 
     return {

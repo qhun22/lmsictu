@@ -32,16 +32,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const statUnknown = $('tq-stat-unknown');
   const statDuplicate = $('tq-stat-duplicate');
   const statDuplicateWrap = $('tq-stat-duplicate-wrap');
+  const statTf = $('tq-stat-tf');
+  const statFill = $('tq-stat-fill');
+  const statOrder = $('tq-stat-order');
+  const statSingleWrap = $('tq-stat-single-wrap');
+  const statMultipleWrap = $('tq-stat-multiple-wrap');
+  const statTfWrap = $('tq-stat-tf-wrap');
+  const statFillWrap = $('tq-stat-fill-wrap');
+  const statOrderWrap = $('tq-stat-order-wrap');
 
   if (!subjectSelect || !weekSelect || !dropzone) return;
 
   // ── Cập nhật các badge loại câu hỏi trong header ──
-  function updateTypeCounters(singleCount, multipleCount, unknownCount, duplicateCount) {
-    if (statSingle) statSingle.textContent = singleCount;
-    if (statMultiple) statMultiple.textContent = multipleCount;
-    if (statUnknown) statUnknown.textContent = unknownCount;
-    if (statDuplicate) statDuplicate.textContent = duplicateCount;
-    if (statDuplicateWrap) statDuplicateWrap.hidden = !duplicateCount;
+  function updateTypeCounters(s) {
+    // s là object { single, multiple, tf, fill, order, unknown, duplicate }
+    if (statSingle) statSingle.textContent = s.single || 0;
+    if (statMultiple) statMultiple.textContent = s.multiple || 0;
+    if (statTf) statTf.textContent = s.tf || 0;
+    if (statFill) statFill.textContent = s.fill || 0;
+    if (statOrder) statOrder.textContent = s.order || 0;
+    if (statUnknown) statUnknown.textContent = s.unknown || 0;
+    if (statDuplicate) statDuplicate.textContent = s.duplicate || 0;
+    if (statSingleWrap) statSingleWrap.hidden = !(s.single);
+    if (statMultipleWrap) statMultipleWrap.hidden = !(s.multiple);
+    if (statTfWrap) statTfWrap.hidden = !(s.tf);
+    if (statFillWrap) statFillWrap.hidden = !(s.fill);
+    if (statOrderWrap) statOrderWrap.hidden = !(s.order);
+    if (statDuplicateWrap) statDuplicateWrap.hidden = !(s.duplicate);
   }
 
   let currentFile = null;
@@ -277,10 +294,218 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ── Render ──
+  // ╔══════════════════════════════════════════════════════════════╗
+  // ║  Render phần chỉnh sửa cho 3 dạng đặc biệt                    ║
+  // ╚══════════════════════════════════════════════════════════════╝
+  function renderEditSpecial(q) {
+    if (q.type === 'true_false') {
+      const correct = (q.correct_options || [])[0];
+      const tf = correct
+        ? /sai|false/.test(correct.text.toLowerCase())
+          ? 'false'
+          : 'true'
+        : '';
+      return `
+        <div class="tq-edit-row">
+          <span class="tq-edit-label">Chọn đáp án đúng</span>
+          <div class="tq-edit-tf">
+            <label class="tq-edit-tf-item ${tf === 'true' ? 'is-active' : ''}">
+              <input type="radio" name="tq-edit-tf" value="true" ${tf === 'true' ? 'checked' : ''} />
+              <i data-lucide="check" class="tq-icon"></i> Đúng
+            </label>
+            <label class="tq-edit-tf-item ${tf === 'false' ? 'is-active' : ''}">
+              <input type="radio" name="tq-edit-tf" value="false" ${tf === 'false' ? 'checked' : ''} />
+              <i data-lucide="x" class="tq-icon"></i> Sai
+            </label>
+          </div>
+        </div>
+      `;
+    }
+    if (q.type === 'fill_in_blank') {
+      return `
+        <div class="tq-edit-row">
+          <label class="tq-edit-label" for="tq-edit-fill-answer">Đáp án điền vào chỗ trống</label>
+          <input
+            type="text"
+            id="tq-edit-fill-answer"
+            class="tq-edit-input"
+            value="${escapeHtml(q.fill_blank_answer || '')}"
+            placeholder="VD: Việt Nam"
+          />
+          <p class="tq-edit-hint">
+            <i data-lucide="info" class="tq-icon tq-icon--sm"></i>
+            Trong nội dung câu hỏi, dùng <code>___</code>, <code>[ ]</code>, hoặc <code>( )</code> để đánh dấu chỗ trống.
+          </p>
+        </div>
+      `;
+    }
+    if (q.type === 'ordering') {
+      const words = (q.ordering_words || []).join('|');
+      const seq = (q.ordering_sequence || []).join('|');
+      return `
+        <div class="tq-edit-row">
+          <label class="tq-edit-label" for="tq-edit-order-words">Từ lộn xộn (các từ, phân cách bằng <code>|</code>)</label>
+          <input
+            type="text"
+            id="tq-edit-order-words"
+            class="tq-edit-input"
+            value="${escapeHtml(words)}"
+            placeholder="VD: Huy|name|is|My"
+          />
+        </div>
+        <div class="tq-edit-row">
+          <label class="tq-edit-label" for="tq-edit-order-seq">Thứ tự đúng (các từ, phân cách bằng <code>|</code>)</label>
+          <input
+            type="text"
+            id="tq-edit-order-seq"
+            class="tq-edit-input"
+            value="${escapeHtml(seq)}"
+            placeholder="VD: My|name|is|Huy"
+          />
+          <p class="tq-edit-hint">
+            <i data-lucide="info" class="tq-icon tq-icon--sm"></i>
+            Có thể kéo-thả các thẻ từ để thay đổi thứ tự sau khi lưu.
+          </p>
+        </div>
+      `;
+    }
+    // single_choice / multiple_response / unknown → render options A/B/C/D
+    const optionsHtml = (q.options || [])
+      .map(
+        (o, i) => `
+        <li class="tq-edit-option" data-idx="${i}">
+          <span class="tq-edit-option-label">${escapeHtml(o.label)}</span>
+          <input
+            type="text"
+            class="tq-edit-option-input"
+            value="${escapeHtml(o.text)}"
+            placeholder="Nội dung đáp án ${escapeHtml(o.label)}"
+          />
+          <label class="tq-edit-correct" title="Đánh dấu đáp án đúng">
+            <input
+              type="checkbox"
+              class="tq-edit-correct-cb"
+              ${o.correct ? 'checked' : ''}
+            />
+            <span><i data-lucide="check" class="tq-icon tq-icon--sm"></i></span>
+          </label>
+        </li>
+      `,
+      )
+      .join('');
+    return `
+      <div class="tq-edit-row">
+        <span class="tq-edit-label">Các đáp án</span>
+        <ul class="tq-edit-options">${optionsHtml}</ul>
+      </div>
+    `;
+  }
+
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text == null ? '' : String(text);
     return div.innerHTML;
+  }
+
+  // ╔══════════════════════════════════════════════════════════════╗
+  // ║  Render đặc biệt cho true_false / ordering / fill_in_blank    ║
+  // ╚══════════════════════════════════════════════════════════════╝
+  function renderSpecial(q) {
+    if (q.type === 'true_false') {
+      const correct = (q.correct_options || [])[0];
+      const ver = correct ? correct.text.replace(/[.。]/g, '').toLowerCase() : '';
+      const isTrue = /đúng|true/.test(ver);
+      return `
+        <div class="tq-special tq-special--tf">
+          <span class="tq-tf-option ${isTrue ? 'is-correct' : ''}">
+            <i data-lucide="check" class="tq-icon tq-icon--sm"></i> Đúng
+          </span>
+          <span class="tq-tf-option ${!isTrue && correct ? 'is-correct' : ''}">
+            <i data-lucide="x" class="tq-icon tq-icon--sm"></i> Sai
+          </span>
+        </div>
+      `;
+    }
+    if (q.type === 'fill_in_blank') {
+      const ans = q.fill_blank_answer;
+      // Highlight chỗ trống ___ hoặc [ ] trong body
+      const body = q.text || '';
+      let htmlBody = escapeHtml(body);
+      htmlBody = htmlBody.replace(
+        /(_{3,}|\[\s*\]|\(\s*\)|…+|\.\.\.+)/g,
+        '<span class="tq-fill-blank">______</span>',
+      );
+      const markerBlock = q.marker
+        ? `<p class="tq-fill-marker"><i data-lucide="edit-3" class="tq-icon tq-icon--sm"></i>${escapeHtml(q.marker)}</p>`
+        : '';
+      const answerBlock = ans
+        ? `<p class="tq-fill-answer">
+            <i data-lucide="edit-3" class="tq-icon tq-icon--sm"></i>
+            Đáp án điền: <strong>${escapeHtml(ans)}</strong>
+          </p>`
+        : `<p class="tq-fill-answer tq-fill-answer--missing">
+            <i data-lucide="alert-triangle" class="tq-icon tq-icon--sm"></i>
+            <span>Chưa xác định được đáp án điền</span>
+            <em class="tq-fill-hint">
+              Trong Word, đáp án cần nằm trên một dòng riêng có dấu
+              <code>*</code>, <code>•</code>, hoặc <code>-</code>
+              ở đầu (VD: <code>*Việt Nam</code>).
+            </em>
+          </p>`;
+      return `
+        <div class="tq-special tq-special--fill">
+          ${markerBlock}
+          <p class="tq-fill-sentence">${htmlBody}</p>
+          ${answerBlock}
+        </div>
+      `;
+    }
+    if (q.type === 'ordering') {
+      const words = q.ordering_words || [];
+      const seq = q.ordering_sequence || [];
+      const markerBlock = q.marker
+        ? `<p class="tq-fill-marker"><i data-lucide="align-vertical-justify-center" class="tq-icon tq-icon--sm"></i>${escapeHtml(q.marker)}</p>`
+        : '';
+      const missingHint = (words.length === 0 || seq.length === 0)
+        ? `<p class="tq-fill-answer tq-fill-answer--missing">
+            <i data-lucide="alert-triangle" class="tq-icon tq-icon--sm"></i>
+            <span>${words.length === 0 && seq.length === 0
+              ? 'Thiếu cả dãy từ lộn xộn (*) lẫn đáp án (**)'
+              : words.length === 0
+                ? 'Thiếu dãy từ lộn xộn (*)'
+                : 'Thiếu đáp án thứ tự (**)'}</span>
+            <em class="tq-fill-hint">
+              Cần 2 dòng: <code>*word1|word2|...</code> (từ lộn xộn)
+              và <code>**word1|word2|...</code> (thứ tự đúng).
+            </em>
+          </p>`
+        : '';
+      return `
+        <div class="tq-special tq-special--order">
+          ${markerBlock}
+          <div class="tq-order-row">
+            <span class="tq-order-label">T� lộn xộn</span>
+            <div class="tq-order-tiles">
+              ${words.length
+                ? words.map((w) => `<span class="tq-order-tile">${escapeHtml(w)}</span>`).join('')
+                : '<span class="tq-order-tile tq-order-tile--muted">(chưa có)</span>'
+              }
+            </div>
+          </div>
+          <div class="tq-order-row">
+            <span class="tq-order-label">Thứ tự đúng</span>
+            <div class="tq-order-tiles">
+              ${seq.length
+                ? seq.map((w) => `<span class="tq-order-tile tq-order-tile--correct">${escapeHtml(w)}</span>`).join('')
+                : '<span class="tq-order-tile tq-order-tile--muted">(chưa có)</span>'
+              }
+            </div>
+          </div>
+          ${missingHint}
+        </div>
+      `;
+    }
+    return '';
   }
 
   function renderQuestions(items, warnings) {
@@ -293,10 +518,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const warnCount = items.length - validCount;
 
     // Đếm theo loại câu hỏi
-    const singleCount = items.filter((q) => q.type === 'single_choice').length;
-    const multipleCount = items.filter((q) => q.type === 'multiple_response').length;
-    const unknownCount = items.filter((q) => q.type === 'unknown').length;
-    const duplicateCount = items.filter((q) => q.isDuplicate).length;
+    const counts = {
+      single: items.filter((q) => q.type === 'single_choice').length,
+      multiple: items.filter((q) => q.type === 'multiple_response').length,
+      tf: items.filter((q) => q.type === 'true_false').length,
+      fill: items.filter((q) => q.type === 'fill_in_blank').length,
+      order: items.filter((q) => q.type === 'ordering').length,
+      unknown: items.filter((q) => q.type === 'unknown').length,
+      duplicate: items.filter((q) => q.isDuplicate).length,
+    };
 
     countNum.textContent = items.length;
     toolbarStat.hidden = items.length === 0;
@@ -305,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
     statWarnWrap.hidden = warnCount === 0;
 
     // Cập nhật các badge thống kê loại câu hỏi (nếu có trong DOM)
-    updateTypeCounters(singleCount, multipleCount, unknownCount, duplicateCount);
+    updateTypeCounters(counts);
 
     // Warnings panel
     warningsPanel.hidden = !warnings || warnings.length === 0;
@@ -394,6 +624,9 @@ document.addEventListener('DOMContentLoaded', () => {
               : `<span class="tq-answer tq-answer--missing">Chưa xác định đáp án đúng</span>`
             }
           </div>
+
+          ${renderSpecial(q)}
+
           <ul class="tq-options">${opts}</ul>
         </li>
       `;
@@ -497,30 +730,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const idx = questions.findIndex((x) => x.id === qid);
     const displayNum = idx >= 0 ? idx + 1 : q.number;
 
-    const optionsHtml = (q.options || [])
-      .map(
-        (o, i) => `
-        <li class="tq-edit-option" data-idx="${i}">
-          <span class="tq-edit-option-label">${escapeHtml(o.label)}</span>
-          <input
-            type="text"
-            class="tq-edit-option-input"
-            value="${escapeHtml(o.text)}"
-            placeholder="Nội dung đáp án ${escapeHtml(o.label)}"
-          />
-          <label class="tq-edit-correct" title="Đánh dấu đáp án đúng">
-            <input
-              type="checkbox"
-              class="tq-edit-correct-cb"
-              ${o.correct ? 'checked' : ''}
-            />
-            <span><i data-lucide="check" class="tq-icon tq-icon--sm"></i></span>
-          </label>
-        </li>
-      `,
-      )
-      .join('');
-
     body.innerHTML = `
       <div class="tq-edit-row">
         <span class="tq-edit-label">Câu số</span>
@@ -532,16 +741,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
       <div class="tq-edit-row">
         <span class="tq-edit-label">Loại câu hỏi</span>
-        <div class="tq-edit-type" role="radiogroup">
+        <div class="tq-edit-type tq-edit-type--five" role="radiogroup">
           <button
             type="button"
             class="tq-edit-type-btn ${q.type === 'single_choice' ? 'is-active' : ''}"
             data-type="single_choice"
             role="radio"
             aria-checked="${q.type === 'single_choice'}"
+            title="1 đáp án đúng"
           >
             <i data-lucide="circle-dot" class="tq-icon tq-icon--sm"></i>
-            1 đáp án đúng
+            <span>1 đáp án</span>
           </button>
           <button
             type="button"
@@ -549,9 +759,43 @@ document.addEventListener('DOMContentLoaded', () => {
             data-type="multiple_response"
             role="radio"
             aria-checked="${q.type === 'multiple_response'}"
+            title="Nhiều đáp án đúng"
           >
             <i data-lucide="check-square" class="tq-icon tq-icon--sm"></i>
-            Nhiều đáp án đúng
+            <span>Nhiều</span>
+          </button>
+          <button
+            type="button"
+            class="tq-edit-type-btn ${q.type === 'true_false' ? 'is-active' : ''}"
+            data-type="true_false"
+            role="radio"
+            aria-checked="${q.type === 'true_false'}"
+            title="Đúng / Sai"
+          >
+            <i data-lucide="toggle-left" class="tq-icon tq-icon--sm"></i>
+            <span>Đúng/Sai</span>
+          </button>
+          <button
+            type="button"
+            class="tq-edit-type-btn ${q.type === 'fill_in_blank' ? 'is-active' : ''}"
+            data-type="fill_in_blank"
+            role="radio"
+            aria-checked="${q.type === 'fill_in_blank'}"
+            title="Điền vào chỗ trống"
+          >
+            <i data-lucide="edit-3" class="tq-icon tq-icon--sm"></i>
+            <span>Điền</span>
+          </button>
+          <button
+            type="button"
+            class="tq-edit-type-btn ${q.type === 'ordering' ? 'is-active' : ''}"
+            data-type="ordering"
+            role="radio"
+            aria-checked="${q.type === 'ordering'}"
+            title="Sắp xếp từ"
+          >
+            <i data-lucide="align-vertical-justify-center" class="tq-icon tq-icon--sm"></i>
+            <span>Sắp xếp</span>
           </button>
         </div>
       </div>
@@ -566,10 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
         >${escapeHtml(q.text || '')}</textarea>
       </div>
 
-      <div class="tq-edit-row">
-        <span class="tq-edit-label">Các đáp án</span>
-        <ul class="tq-edit-options">${optionsHtml}</ul>
-      </div>
+      ${renderEditSpecial(q)}
     `;
 
     // Toggle type buttons
@@ -670,11 +911,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const seen = new Map(); // key → first index
     questions.forEach((q, idx) => {
+      // ── So sánh theo nhiều tiêu chí để bắt trùng chính xác ──
       const correctLabels = (q.correct_options || [])
         .map((o) => o.label)
         .sort()
         .join(',');
-      const key = `${normalizeText(q.text)}::${correctLabels}`;
+
+      // Với câu đặc biệt, dùng extra fields để phân biệt
+      let specialKey = '';
+      if (q.type === 'fill_in_blank') {
+        specialKey = `fill::${normalizeText(q.fill_blank_answer || '')}`;
+      } else if (q.type === 'ordering') {
+        const w = (q.ordering_words || []).join('|');
+        const s = (q.ordering_sequence || []).join('|');
+        specialKey = `ord::${w}::${s}`;
+      } else if (q.type === 'true_false') {
+        specialKey = `tf::${correctLabels}`;
+      }
+
+      // KEY = text (đã bỏ marker đặc biệt) + correct_labels + special
+      const textKey = normalizeText(q.text || '');
+      const key = `${textKey}::${correctLabels}::${specialKey}`;
 
       if (seen.has(key)) {
         const firstIdx = seen.get(key);
@@ -712,40 +969,80 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Lấy loại
     const activeTypeBtn = body.querySelector('.tq-edit-type-btn.is-active');
     const newType = activeTypeBtn ? activeTypeBtn.dataset.type : q.type;
-    // 3. Lấy options
-    const newOptions = [];
-    body.querySelectorAll('.tq-edit-option').forEach((li) => {
-      const idx = parseInt(li.dataset.idx, 10);
-      const orig = q.options[idx];
-      const input = li.querySelector('.tq-edit-option-input');
-      const cb = li.querySelector('.tq-edit-correct-cb');
-      newOptions.push({
-        label: orig.label,
-        text: input.value.trim(),
-        correct: cb.checked,
-      });
-    });
 
-    // Áp dụng
     q.text = text;
-    q.options = newOptions;
-    q.correct_options = newOptions.filter((o) => o.correct);
+    q.type = newType;
 
-    // Đảm bảo consistency giữa type và số correct
-    const correctCount = q.correct_options.length;
-    if (newType === 'single_choice') {
-      q.type = 'single_choice';
-      q.type_label = '1 đáp án đúng';
-      // Nếu có nhiều đáp án đúng → giữ nguyên (đã gán mác), nhưng chỉ lấy 1 đầu tiên làm answer
-      q.answer = correctCount ? q.correct_options[0].label : null;
-    } else if (newType === 'multiple_response') {
-      q.type = 'multiple_response';
-      q.type_label = 'Nhiều đáp án đúng';
-      q.answer = q.correct_options.map((o) => o.label).join(', ');
+    // 3. Lưu theo từng loại
+    if (newType === 'true_false') {
+      const tfRadio = body.querySelector('input[name="tq-edit-tf"]:checked');
+      const tfValue = tfRadio ? tfRadio.value : 'true';
+      q.options = [
+        { label: 'A', text: 'Đúng', correct: tfValue === 'true' },
+        { label: 'B', text: 'Sai', correct: tfValue === 'false' },
+      ];
+      q.correct_options = q.options.filter((o) => o.correct);
+      q.is_true_false = true;
+      q.is_ordering = false;
+      q.is_fill_in_blank = false;
+      q.type_label = 'Đúng / Sai';
+      q.answer = tfValue === 'true' ? 'A' : 'B';
+    } else if (newType === 'fill_in_blank') {
+      const ansInput = body.querySelector('#tq-edit-fill-answer');
+      const ans = ansInput ? ansInput.value.trim() : '';
+      q.fill_blank_answer = ans;
+      q.options = [];
+      q.correct_options = [];
+      q.is_fill_in_blank = true;
+      q.is_true_false = false;
+      q.is_ordering = false;
+      q.type_label = 'Điền từ vào chỗ trống';
+      q.answer = ans;
+    } else if (newType === 'ordering') {
+      const wordsInput = body.querySelector('#tq-edit-order-words');
+      const seqInput = body.querySelector('#tq-edit-order-seq');
+      const words = (wordsInput ? wordsInput.value : '').split('|').map((s) => s.trim()).filter(Boolean);
+      const seq = (seqInput ? seqInput.value : '').split('|').map((s) => s.trim()).filter(Boolean);
+      q.ordering_words = words;
+      q.ordering_sequence = seq;
+      q.options = [];
+      q.correct_options = [];
+      q.is_ordering = true;
+      q.is_true_false = false;
+      q.is_fill_in_blank = false;
+      q.type_label = 'Sắp xếp từ';
+      q.answer = seq.join('|');
     } else {
-      q.type = 'unknown';
-      q.type_label = 'Chưa xác định';
-      q.answer = null;
+      // single_choice / multiple_response / unknown
+      const newOptions = [];
+      body.querySelectorAll('.tq-edit-option').forEach((li) => {
+        const idx = parseInt(li.dataset.idx, 10);
+        const orig = q.options[idx] || { label: 'A' };
+        const input = li.querySelector('.tq-edit-option-input');
+        const cb = li.querySelector('.tq-edit-correct-cb');
+        newOptions.push({
+          label: orig.label,
+          text: input ? input.value.trim() : '',
+          correct: cb ? cb.checked : false,
+        });
+      });
+      q.options = newOptions;
+      q.correct_options = newOptions.filter((o) => o.correct);
+      q.is_true_false = false;
+      q.is_ordering = false;
+      q.is_fill_in_blank = false;
+
+      const correctCount = q.correct_options.length;
+      if (newType === 'single_choice') {
+        q.type_label = '1 đáp án đúng';
+        q.answer = correctCount ? q.correct_options[0].label : null;
+      } else if (newType === 'multiple_response') {
+        q.type_label = 'Nhiều đáp án đúng';
+        q.answer = q.correct_options.map((o) => o.label).join(', ');
+      } else {
+        q.type_label = 'Chưa xác định';
+        q.answer = null;
+      }
     }
 
     // Re-render (tính lại duplicate vì text/answer có thể đã đổi)
