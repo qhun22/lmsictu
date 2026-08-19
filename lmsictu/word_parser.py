@@ -78,6 +78,16 @@ RE_FILL_BLANK = re.compile(
     re.IGNORECASE,
 )
 
+# drag_into_text (kéo thả): "kéo thả", "kéo-thả", "kéo các đáp án", "điền khớp", "drag and drop"
+# Dùng re.IGNORECASE nên không cần kẹp k hoa. Pattern chỉ cần từ "éo" vì "K" hoa match tự động.
+RE_DRAG_INTO_TEXT = re.compile(
+    r'(kéo|éo\s*thả|thả|'
+    r'drag\s*and\s*drop|'
+    r'điền\s+(?:các\s+)?đáp\s*án\s+(?:vào|khớp)|'
+    r'nối\s+(?:các\s+)?đáp\s*án)',
+    re.IGNORECASE,
+)
+
 # Marker EXACT (extract ra khối text để hiển thị riêng)
 # Strategy: tìm cụm RE_FILL_BLANK/RE_ORDERING, lấy phần đầu câu (từ start đến hết dấu "."
 # đầu tiên hoặc ":"). Phần còn lại là body.
@@ -87,26 +97,44 @@ def _split_marker(text: str, marker_pattern) -> tuple:
       (marker_text, body_text)
     marker_text lấy phần đầu CÂU (đến dấu "." hoặc ":" đầu tiên).
     Nếu không khớp → trả ('', text).
+
+    NOTE: Không ưu tiên ___ nữa — để commit_current tách câu có ___.
     """
     m = marker_pattern.search(text)
     if not m:
         return '', text
-    marker_start, marker_end = m.span()
-    # Tìm dấu phân cách câu đầu tiên sau marker_end
+    marker_end = m.span()[1]
     suffix = text[marker_end:]
-    cut = None
+    punct_pos = None
     for i, ch in enumerate(suffix):
         if ch in '.!?':
-            cut = marker_end + i + 1
+            punct_pos = marker_end + i + 1
             break
-    # Không có dấu → lấy toàn bộ phần còn lại làm marker
-    if cut is None:
-        cut = marker_end
-    return text[:cut].strip(), text[cut:].strip()
+    if punct_pos is not None:
+        return text[:punct_pos].strip(), text[punct_pos:].strip()
+    return text[:marker_end].strip(), text[marker_end:].strip()
+
+
+def _split_marker_drag(text: str, marker_pattern) -> tuple:
+    """
+    Phiên bản đặc biệt cho drag_into_text.
+    Tìm phrase marker, cắt tại dấu kết thúc câu (.!?:) SAU phrase.
+    Phần body có thể chứa câu có ___ — caller sẽ tách.
+    """
+    m = marker_pattern.search(text)
+    if not m:
+        return '', text
+    marker_end = m.span()[1]
+    # Tìm dấu kết thúc câu (.!?:) đầu tiên SAU marker_end
+    for i in range(marker_end, len(text)):
+        if text[i] in '.!?;:':
+            return text[:i+1].strip(), text[i+1:].strip()
+    return text.strip(), ''
 
 
 RE_FILL_BLANK_MARKER = RE_FILL_BLANK
 RE_ORDERING_MARKER = RE_ORDERING
+RE_DRAG_MARKER = RE_DRAG_INTO_TEXT
 
 # Chỗ trống trong text: "___", "[ ]", "()", "…", "______"
 RE_BLANK_PLACEHOLDER = re.compile(r'_{3,}|\[\s*\]|\(\s*\)|…+|\.\.\.+')
@@ -262,8 +290,14 @@ QUESTION_TYPES = {
     'true_false': 'Đúng / Sai',
     'fill_in_blank': 'Điền từ vào chỗ trống',
     'ordering': 'Sắp xếp từ',
+    'drag_into_text': 'Kéo thả đáp án',
+    'drag_into_groups': 'Kéo thả theo nhóm',
     'unknown': 'Chưa xác định',
 }
+
+DEFAULT_ORDERING_PROMPT = 'Sắp xếp lại câu sau sao cho đúng cấu trúc.'
+DEFAULT_GROUPING_PROMPT = 'Phân chia đáp án vào nhóm phù hợp'
+DEFAULT_DRAG_PROMPT = 'Kéo thả các từ vào vị trí thích hợp.'
 
 
 def _ensure_special_flags(current: dict) -> None:
@@ -286,6 +320,8 @@ def _ensure_special_flags(current: dict) -> None:
         current['is_ordering'] = True
     if not current.get('is_fill_in_blank') and RE_FILL_BLANK.search(text):
         current['is_fill_in_blank'] = True
+    if not current.get('is_drag_into_text') and RE_DRAG_INTO_TEXT.search(text):
+        current['is_drag_into_text'] = True
     if not current.get('is_true_false') and RE_TRUE_FALSE.search(text):
         current['is_true_false'] = True
 
@@ -303,6 +339,10 @@ def _ensure_special_flags(current: dict) -> None:
                 current['marker'] = marker
                 current['text'] = body
                 text = body
+            else:
+                # Drag: marker đã được xử lý trong commit_current (nếu đã có marker)
+                # Hoặc chưa có marker → text vẫn nguyên → commit_current sẽ xử lý
+                pass
 
 
 def _classify_question(current: dict) -> tuple:
@@ -338,6 +378,9 @@ def _classify_question(current: dict) -> tuple:
     if current.get('is_fill_in_blank'):
         return 'fill_in_blank', QUESTION_TYPES['fill_in_blank'], []
 
+    if current.get('is_drag_into_text'):
+        return 'drag_into_text', QUESTION_TYPES['drag_into_text'], []
+
     # ── ƯU TIÊN 2: detect từ TEXT câu hỏi ──
     if RE_TRUE_FALSE.search(text):
         return 'true_false', QUESTION_TYPES['true_false'], [
@@ -347,6 +390,8 @@ def _classify_question(current: dict) -> tuple:
         return 'ordering', QUESTION_TYPES['ordering'], []
     if RE_FILL_BLANK.search(text):
         return 'fill_in_blank', QUESTION_TYPES['fill_in_blank'], []
+    if RE_DRAG_INTO_TEXT.search(text):
+        return 'drag_into_text', QUESTION_TYPES['drag_into_text'], []
 
     # ── ƯU TIÊN 3: detect từ CẤU TRÚC ──
     # true_false: có đúng 2 option mà 1 trong 2 chứa "đúng" hoặc "sai"
@@ -447,6 +492,38 @@ def parse_docx_questions(file) -> dict:
     current = None
     pending_label: Optional[str] = None  # dòng "Đáp án: B" xuất hiện trước options
 
+    def is_true_false_pair(options: list) -> bool:
+        labels = [str(option.get('label', '')).upper() for option in options]
+        texts = ' '.join(str(option.get('text', '')).lower() for option in options)
+        return len(options) == 2 and labels == ['A', 'B'] and (
+            ('đúng' in texts and 'sai' in texts)
+            or ('true' in texts and 'false' in texts)
+        )
+
+    def save_true_false_statement() -> bool:
+        if current is None or not current.get('text') or not is_true_false_pair(current.get('options', [])):
+            return False
+        correct = next((option for option in current['options'] if option.get('correct')), None)
+        current.setdefault('statements', []).append({
+            'text': current['text'].strip(),
+            'answer': 'true' if correct and correct.get('label') == 'A' else 'false' if correct else None,
+        })
+        current['text'] = ''
+        current['options'] = []
+        current['answer'] = None
+        return True
+
+    def save_ordering_statement() -> bool:
+        if current is None or not current.get('ordering_words') or not current.get('ordering_sequence'):
+            return False
+        current.setdefault('statements', []).append({
+            'ordering_words': list(current['ordering_words']),
+            'ordering_sequence': list(current['ordering_sequence']),
+        })
+        current['ordering_words'] = None
+        current['ordering_sequence'] = None
+        return True
+
     def commit_current():
         nonlocal current
         if current is None:
@@ -462,6 +539,13 @@ def parse_docx_questions(file) -> dict:
                 (o['label'] for o in current['options'] if o['correct']),
                 None,
             )
+
+        if current.get('statements') and current.get('text') and current.get('options'):
+            save_true_false_statement()
+            current['text'] = current['statements'][0]['text']
+
+        if current.get('is_ordering') and current.get('ordering_words') and current.get('ordering_sequence'):
+            save_ordering_statement()
 
         # ── Tách các dòng * / ** bị lẫn trong body (cho ordering) ──
         # Nếu body có chứa dòng *word|... và **word|..., tách chúng ra.
@@ -509,11 +593,78 @@ def parse_docx_questions(file) -> dict:
             text_body = re.sub(r'^[\:\.\s]+', '', text_body).strip()
             current['text'] = text_body
 
+        # ── DRAG_INTO_TEXT: extract marker + collect sentences/answers ──
+        if current.get('is_drag_into_text'):
+            # Ghép text + marker để xử lý
+            combined = (current.get('text') or '') + '\n' + (current.get('marker') or '')
+            if combined.strip():
+                # Tìm marker đúng (câu đầu tiên, không chứa ___)
+                marker_fixed, body_fixed = _split_marker_drag(combined.strip(), RE_DRAG_MARKER)
+                # Tách lines để phân loại
+                lines_all = (body_fixed or '').split('\n')
+                intro_parts = []
+                for bline in lines_all:
+                    bline = bline.strip()
+                    if not bline:
+                        continue
+                    # Dòng bắt đầu bằng * = answer
+                    if bline.startswith('*') or re.match(r'^\s*[*•·›–\-]\s*(.+)', bline):
+                        ans_text = re.sub(r'^\s*[*•·›–\-]\s*', '', bline).strip()
+                        if current.get('drag_answers') is None:
+                            current['drag_answers'] = []
+                        if ans_text not in current['drag_answers']:
+                            current['drag_answers'].append(ans_text)
+                        continue
+                    # Dòng chứa ___ = sentence
+                    if '___' in bline:
+                        if current.get('drag_sentences') is None:
+                            current['drag_sentences'] = []
+                        current['drag_sentences'].append({'text': bline})
+                        continue
+                    # Dòng khác = intro
+                    intro_parts.append(bline)
+                current['marker'] = marker_fixed
+                current['text'] = '\n'.join(intro_parts).strip()
+
+        # ── Match answers to drag_sentences (theo thứ tự xuất hiện trong file) ──
+        # Cấu trúc file: câu1 có ___ → câu1 answer (last)
+        #                 câu2 có ___ → câu2 answer → ... → câuN có ___ → câuN answer (first)
+        # => Gán reversed: sentences[i] → answers[-(i+1)]
+        if current.get('is_drag_into_text'):
+            answers = current.get('drag_answers') or []
+            sentences = current.get('drag_sentences') or []
+            n_sent = len(sentences)
+            n_ans = len(answers)
+            if n_sent > 0 and n_ans > 0:
+                for i, sent in enumerate(sentences):
+                    ans_idx = n_ans - 1 - i  # reversed index
+                    if 0 <= ans_idx < n_ans:
+                        sent['answer'] = answers[ans_idx]
+                    else:
+                        sent['answer'] = None
+                # Các đáp án reversed (để shuffle = shuffle thứ tự đúng)
+                current['drag_answers'] = list(reversed(answers))
+                # Ghép các câu đã match vào marker/intro (marker chỉ là intro)
+                # Sentences được hiển thị riêng qua drag_sentences
+                # marker vẫn giữ nguyên intro (đã được tách ở _split_marker)
+                current['text'] = ''  # body đã chuyển vào drag_sentences
+
         # ── Phân loại dạng câu hỏi (text + cấu trúc) ──
         qtype, qlabel, qcorrect = _classify_question(current)
+        if qtype == 'drag_into_text' and current.get('drag_groups'):
+            qtype = 'drag_into_groups'
+            qlabel = 'Kéo thả theo nhóm'
+            if not current.get('text'):
+                current['text'] = DEFAULT_GROUPING_PROMPT
+        elif qtype == 'drag_into_text' and not current.get('text'):
+            current['text'] = DEFAULT_DRAG_PROMPT
         current['type'] = qtype
         current['type_label'] = qlabel
         current['correct_options'] = qcorrect
+        if qtype == 'ordering' and not current.get('text'):
+            current['text'] = DEFAULT_ORDERING_PROMPT
+        if qtype == 'true_false' and current.get('statements'):
+            current['text'] = 'Chọn đáp án Đúng Sai phù hợp.'
 
         questions.append(current)
         current = None
@@ -562,6 +713,11 @@ def parse_docx_questions(file) -> dict:
                 'ordering_words': None,
                 'ordering_sequence': None,
                 'fill_blank_answer': None,
+                'is_drag_into_text': False,
+                'drag_answers': None,      # list[str] — các đáp án kéo thả
+                'drag_groups': [],
+                'drag_sentences': None,   # list[dict] — mỗi dict có text (có ___) và answer
+                'statements': [],
             }
             # Nếu là ordering → next iteration có thể là dòng * / **
             continue
@@ -592,6 +748,11 @@ def parse_docx_questions(file) -> dict:
                 'ordering_words': None,
                 'ordering_sequence': None,
                 'fill_blank_answer': None,
+                'is_drag_into_text': False,
+                'drag_answers': None,      # list[str] — các đáp án kéo thả
+                'drag_groups': [],
+                'drag_sentences': None,   # list[dict] — mỗi dict có text (có ___) và answer
+                'statements': [],
             }
             continue
 
@@ -604,6 +765,8 @@ def parse_docx_questions(file) -> dict:
                 current['ordering_sequence'] = seq
                 continue
             if ord_words:
+                if current.get('ordering_words') and current.get('ordering_sequence'):
+                    save_ordering_statement()
                 words = [w.strip() for w in ord_words.group(1).split('|') if w.strip()]
                 current['ordering_words'] = words
                 continue
@@ -625,11 +788,52 @@ def parse_docx_questions(file) -> dict:
                 current['text'] = line
             continue
 
+        # ── DRAG_INTO_TEXT: parse đáp án * + câu có ___ ──
+        if current is not None and current.get('is_drag_into_text'):
+            group_header = RE_ORDERING_ANSWER.match(line)
+            if group_header:
+                if current.get('drag_groups') is None:
+                    current['drag_groups'] = []
+                group = {'label': group_header.group(1).strip(), 'answers': []}
+                current['drag_groups'].append(group)
+                continue
+            # Dòng *answer (không phải **)
+            drag_opt = RE_ORDERING_WORDS.match(line)
+            if drag_opt:
+                if current.get('drag_answers') is None:
+                    current['drag_answers'] = []
+                ans_text = drag_opt.group(1).strip()
+                if ans_text not in current['drag_answers']:
+                    current['drag_answers'].append(ans_text)
+                if current.get('drag_groups'):
+                    current['drag_groups'][-1]['answers'].append(ans_text)
+                continue
+            # Dòng có ___ (câu cần điền)
+            if '___' in line:
+                if current.get('drag_sentences') is None:
+                    current['drag_sentences'] = []
+                current['drag_sentences'].append({'text': line})
+                continue
+            # Các dòng khác: ghép vào marker/intro text
+            if current['text']:
+                current['text'] += ' ' + line
+            else:
+                current['text'] = line
+            continue
+
         # ── True/False: có dòng mới với 2 option Đúng/Sai → set cờ đã có option rồi thì OK ──
         # (true_false không cần parse riêng; classifier sẽ nhận diện sau)
 
+        # Một câu Đúng/Sai có thể chứa nhiều mệnh đề liên tiếp, mỗi mệnh đề
+        # có riêng một cặp A/B. Gặp dòng chữ mới sau cặp A/B thì tách mệnh đề.
+        if current is not None and current.get('is_true_false') and is_true_false_pair(current.get('options', [])):
+            if not _parse_option_line(analysis):
+                save_true_false_statement()
+                current['text'] = line.strip()
+                continue
+
         # 3. Đang trong câu hỏi mà chưa có options → ghép text hoặc bắt đầu option
-        if current is not None and not current['options'] and not current.get('is_ordering') and not current.get('is_fill_in_blank'):
+        if current is not None and not current['options'] and not current.get('is_ordering') and not current.get('is_fill_in_blank') and not current.get('is_drag_into_text'):
             opt = _parse_option_line(analysis)
             if opt:
                 current['options'].append(opt)
@@ -662,9 +866,22 @@ def parse_docx_questions(file) -> dict:
     # Báo warning nếu câu không có option / không có đáp án
     for q in questions:
         qtype = q.get('type')
+        if qtype == 'true_false' and q.get('statements'):
+            if any(statement.get('answer') not in ('true', 'false') for statement in q['statements']):
+                warnings.append(f"Câu {q['number']}: có mệnh đề Đúng/Sai chưa xác định đáp án")
+            continue
         # 3 dạng đặc biệt không bắt buộc ≥2 options
         if qtype in ('ordering', 'fill_in_blank'):
             if q.get('is_ordering'):
+                if q.get('statements'):
+                    for statement_index, statement in enumerate(q['statements'], start=1):
+                        if not statement.get('ordering_words') and not statement.get('ordering_sequence'):
+                            warnings.append(f"Câu {q['number']}, mệnh đề {statement_index}: thiếu từ lộn xộn và thứ tự đúng")
+                        elif not statement.get('ordering_words'):
+                            warnings.append(f"Câu {q['number']}, mệnh đề {statement_index}: thiếu dãy từ lộn xộn (*)")
+                        elif not statement.get('ordering_sequence'):
+                            warnings.append(f"Câu {q['number']}, mệnh đề {statement_index}: thiếu đáp án thứ tự (**)")
+                    continue
                 if not q.get('ordering_words') and not q.get('ordering_sequence'):
                     warnings.append(
                         f"Câu {q['number']}: thiếu cả dãy từ lộn xộn (*) lẫn đáp án (**). "
@@ -684,6 +901,30 @@ def parse_docx_questions(file) -> dict:
                         f"Đáp án cần đứng trên 1 dòng riêng ở đầu có dấu * (vd: *Việt Nam), "
                         f"• hoặc - để parser nhận diện."
                     )
+            continue
+        if qtype in ('drag_into_text', 'drag_into_groups'):
+            if q.get('drag_groups'):
+                if any(not group.get('label') or not group.get('answers') for group in q['drag_groups']):
+                    warnings.append(f"Câu {q['number']}: có nhóm kéo thả chưa có tên hoặc đáp án")
+                continue
+            sentences = q.get('drag_sentences') or []
+            answers = q.get('drag_answers') or []
+            if not sentences and not answers:
+                warnings.append(
+                    f"Câu {q['number']}: thiếu cả câu có ___ lẫn đáp án (*) cho dạng kéo thả."
+                )
+            elif not sentences:
+                warnings.append(
+                    f"Câu {q['number']}: thiếu câu có ___ (ký hiệu chỗ trống) cho dạng kéo thả."
+                )
+            elif not answers:
+                warnings.append(
+                    f"Câu {q['number']}: thiếu đáp án (*) cho dạng kéo thả."
+                )
+            elif len(sentences) != len(answers):
+                warnings.append(
+                    f"Câu {q['number']}: số câu ({len(sentences)}) không khớp số đáp án ({len(answers)})."
+                )
             continue
         if len(q['options']) < 2:
             warnings.append(f"Câu {q['number']}: chỉ có {len(q['options'])} đáp án")

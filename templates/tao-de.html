@@ -26,7 +26,7 @@
     />
     <link
       rel="stylesheet"
-      href="{% static 'assets/css/tao-de.css' %}?v=20260818-15"
+      href="{% static 'assets/css/tao-de.css' %}?v=20260819-24"
     />
     <link
       rel="stylesheet"
@@ -36,9 +36,12 @@
       rel="stylesheet"
       href="{% static 'assets/css/confirm.css' %}?v=20260818-1"
     />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/exam.css' %}?v=20260819-1"
+    />
   </head>
   <body class="tiao-mon-hoc-body">
-
     <!-- ── STICKY HEADER ── -->
     <header class="smh-header" role="banner">
       <div class="smh-header-inner">
@@ -47,9 +50,15 @@
           class="smh-back"
           aria-label="Quay lại trang chủ"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m15 18-6-6 6-6"/>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m15 18-6-6 6-6" />
           </svg>
         </a>
         <h1 class="smh-title">Tạo đề trắc nghiệm</h1>
@@ -59,13 +68,11 @@
     <main class="smh-main">
       <div class="tao-de-page-wrapper">
         <div class="tao-de-grid">
-
           <!-- ╔══════════════════════════════════════╗ -->
           <!-- ║  CỘT TRÁI (380px)                    ║ -->
           <!-- ║  Form điều khiển + Upload            ║ -->
           <!-- ╚══════════════════════════════════════╝ -->
           <div class="left-col">
-
             <!-- Header / Badge số câu -->
             <div class="smh-create-card">
               <div class="smh-count">
@@ -74,12 +81,17 @@
               </div>
 
               <div class="tq-card-title">Tạo đề trắc nghiệm</div>
-              <p class="tq-card-sub">Chọn môn học & tuần học, sau đó tải file Word có đáp án đúng được <strong style="color:#dc2626">bôi đỏ</strong>.</p>
+              <p class="tq-card-sub">
+                Chọn môn học & tuần học, sau đó tải file Word có đáp án đúng
+                được <strong style="color: #dc2626">bôi đỏ</strong>.
+              </p>
             </div>
 
             <!-- Chọn môn học -->
             <div class="smh-create-card">
-              <label class="smh-form-label" for="tq-subject-select">Chọn môn học</label>
+              <label class="smh-form-label" for="tq-subject-select"
+                >Chọn môn học</label
+              >
               <div class="smh-form-row">
                 <select
                   id="tq-subject-select"
@@ -93,7 +105,9 @@
 
             <!-- Chọn tuần học -->
             <div class="smh-create-card">
-              <label class="smh-form-label" for="tq-week-select">Chọn tuần học</label>
+              <label class="smh-form-label" for="tq-week-select"
+                >Chọn tuần học</label
+              >
               <div class="smh-form-row">
                 <select
                   id="tq-week-select"
@@ -121,30 +135,43 @@
                 aria-label="Kéo thả hoặc nhấn để chọn file Word"
               >
                 <div class="tq-dropzone-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                    <line x1="12" y1="18" x2="12" y2="12"/>
-                    <line x1="9" y1="15" x2="15" y2="15"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                    />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
                   </svg>
                 </div>
                 <div class="tq-dropzone-text">
                   <p class="tq-dropzone-title">Kéo thả file Word vào đây</p>
-                  <p class="tq-dropzone-sub">hoặc <span class="tq-link">chọn từ máy</span></p>
+                  <p class="tq-dropzone-sub">
+                    hoặc <span class="tq-link">chọn từ máy</span>
+                  </p>
                 </div>
-                <input
-                  type="file"
-                  id="tq-file-input"
-                  accept=".docx"
-                  hidden
-                />
+                <input type="file" id="tq-file-input" accept=".docx" hidden />
               </div>
               <div class="tq-file-info" id="tq-file-info" hidden>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                  />
+                  <polyline points="14 2 14 8 20 8" />
                 </svg>
                 <span class="tq-file-name" id="tq-file-name"></span>
                 <button
@@ -154,10 +181,16 @@
                   aria-label="Xóa file"
                   title="Xóa file"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
                 </button>
               </div>
@@ -172,11 +205,17 @@
                   id="tq-btn-parse"
                   disabled
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
                   Parse câu hỏi
                 </button>
@@ -189,8 +228,41 @@
                   Xóa hết
                 </button>
               </div>
+              <div class="tq-actions tq-actions--bottom">
+                <button
+                  type="button"
+                  class="smh-btn smh-btn--ghost"
+                  id="tq-btn-add-question"
+                >
+                  + Thêm câu hỏi
+                </button>
+                <button
+                  type="button"
+                  class="smh-btn smh-btn--primary smh-btn--share"
+                  id="tq-btn-share"
+                  disabled
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    width="16"
+                    height="16"
+                  >
+                    <path
+                      d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                    />
+                    <path
+                      d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                    />
+                  </svg>
+                  Tạo link làm bài
+                </button>
+              </div>
             </div>
-
           </div>
 
           <!-- ╔══════════════════════════════════════╗ -->
@@ -201,31 +273,92 @@
             <div class="tq-content-header">
               <h2 class="tq-section-title">Câu hỏi trắc nghiệm</h2>
               <span class="tq-qstats" id="tq-toolbar-stat" hidden>
-                <span class="tq-stat tq-stat--single" id="tq-stat-single-wrap" title="Chỉ 1 đáp án đúng" hidden>
-                  <span class="tq-stat-num" id="tq-stat-single">0</span> một đáp án
+                <span
+                  class="tq-stat tq-stat--single"
+                  id="tq-stat-single-wrap"
+                  title="Chỉ 1 đáp án đúng"
+                  hidden
+                >
+                  <span class="tq-stat-num" id="tq-stat-single">0</span> một đáp
+                  án
                 </span>
-                <span class="tq-stat tq-stat--multi" id="tq-stat-multiple-wrap" title="Nhiều đáp án đúng" hidden>
-                  <span class="tq-stat-num" id="tq-stat-multiple">0</span> nhiều đáp án
+                <span
+                  class="tq-stat tq-stat--multi"
+                  id="tq-stat-multiple-wrap"
+                  title="Nhiều đáp án đúng"
+                  hidden
+                >
+                  <span class="tq-stat-num" id="tq-stat-multiple">0</span> nhiều
+                  đáp án
                 </span>
-                <span class="tq-stat tq-stat--tf" id="tq-stat-tf-wrap" title="Đúng / Sai" hidden>
+                <span
+                  class="tq-stat tq-stat--tf"
+                  id="tq-stat-tf-wrap"
+                  title="Đúng / Sai"
+                  hidden
+                >
                   <span class="tq-stat-num" id="tq-stat-tf">0</span> đúng/sai
                 </span>
-                <span class="tq-stat tq-stat--fill" id="tq-stat-fill-wrap" title="Điền từ vào chỗ trống" hidden>
+                <span
+                  class="tq-stat tq-stat--fill"
+                  id="tq-stat-fill-wrap"
+                  title="Điền từ vào chỗ trống"
+                  hidden
+                >
                   <span class="tq-stat-num" id="tq-stat-fill">0</span> điền từ
                 </span>
-                <span class="tq-stat tq-stat--order" id="tq-stat-order-wrap" title="Sắp xếp từ" hidden>
+                <span
+                  class="tq-stat tq-stat--order"
+                  id="tq-stat-order-wrap"
+                  title="Sắp xếp từ"
+                  hidden
+                >
                   <span class="tq-stat-num" id="tq-stat-order">0</span> sắp xếp
                 </span>
-                <span class="tq-stat tq-stat--warn" id="tq-stat-unknown-wrap" title="Chưa xác định loại">
-                  <span class="tq-stat-num" id="tq-stat-unknown">0</span> chưa rõ
+                <span
+                  class="tq-stat tq-stat--drag"
+                  id="tq-stat-drag-wrap"
+                  title="Kéo thả đáp án"
+                  hidden
+                >
+                  <span class="tq-stat-num" id="tq-stat-drag">0</span> kéo thả
                 </span>
-                <span class="tq-stat tq-stat--duplicate" id="tq-stat-duplicate-wrap" title="Câu trùng lặp">
-                  <span class="tq-stat-num" id="tq-stat-duplicate">0</span> trùng
+                <span
+                  class="tq-stat tq-stat--drag"
+                  id="tq-stat-group-wrap"
+                  title="Phân loại đáp án theo nhóm"
+                  hidden
+                >
+                  <span class="tq-stat-num" id="tq-stat-group">0</span> phân
+                  nhóm
                 </span>
-                <span class="tq-stat tq-stat--ok" title="Hợp lệ (≥2 option + có đáp án)">
+                <span
+                  class="tq-stat tq-stat--warn"
+                  id="tq-stat-unknown-wrap"
+                  title="Chưa xác định loại"
+                >
+                  <span class="tq-stat-num" id="tq-stat-unknown">0</span> chưa
+                  rõ
+                </span>
+                <span
+                  class="tq-stat tq-stat--duplicate"
+                  id="tq-stat-duplicate-wrap"
+                  title="Câu trùng lặp"
+                >
+                  <span class="tq-stat-num" id="tq-stat-duplicate">0</span>
+                  trùng
+                </span>
+                <span
+                  class="tq-stat tq-stat--ok"
+                  title="Hợp lệ (≥2 option + có đáp án)"
+                >
                   <span class="tq-stat-num" id="tq-stat-ok">0</span> hợp lệ
                 </span>
-                <span class="tq-stat tq-stat--warn" id="tq-stat-warn-wrap" hidden>
+                <span
+                  class="tq-stat tq-stat--warn"
+                  id="tq-stat-warn-wrap"
+                  hidden
+                >
                   <span class="tq-stat-num" id="tq-stat-warn">0</span> cảnh báo
                 </span>
               </span>
@@ -239,13 +372,28 @@
             <!-- ── EMPTY STATE ── -->
             <div id="tq-empty" class="smh-empty" aria-live="polite">
               <div class="smh-empty-icon">
-                <i data-lucide="file-text" class="tq-icon tq-icon--xl"></i>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                  />
+                  <path d="M14 2v6h6M8 13h8M8 17h5" />
+                </svg>
               </div>
               <p class="smh-empty-title">Chưa có câu hỏi nào</p>
-              <p class="smh-empty-sub">Kéo thả file Word (đáp án đúng đã được bôi đỏ) vào khung bên trái, sau đó nhấn <strong>Parse câu hỏi</strong> để bắt đầu.</p>
+              <p class="smh-empty-sub">
+                Kéo thả file Word (đáp án đúng đã được bôi đỏ) vào khung bên
+                trái, sau đó nhấn <strong>Parse câu hỏi</strong> để bắt đầu.
+              </p>
             </div>
           </div>
-
         </div>
       </div>
     </main>
@@ -254,6 +402,68 @@
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="{% static 'assets/js/toast.js' %}?v=20260818-1"></script>
     <script src="{% static 'assets/js/confirm.js' %}?v=20260818-1"></script>
-    <script src="{% static 'assets/js/tao-de.js' %}?v=20260818-13"></script>
+    <script src="{% static 'assets/js/tao-de.js' %}?v=20260819-40"></script>
+
+    <!-- Modal: Tạo link làm bài -->
+    <div class="modal-overlay" id="modal-link" hidden>
+      <div
+        class="smh-popover smh-popover--center"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="smh-popover__header">
+          <h2 class="smh-popover__title">Link bài thi</h2>
+        </div>
+        <div class="smh-popover__body">
+          <p class="smh-popover__desc">
+            Dán link bên dưới để chia sẻ bài thi cho học sinh:
+          </p>
+          <div class="link-copy-row">
+            <input
+              type="text"
+              id="share-link-input"
+              class="smh-input"
+              readonly
+              value=""
+            />
+            <button
+              type="button"
+              class="smh-btn smh-btn--primary"
+              id="btn-copy-share-link"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                width="16"
+                height="16"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path
+                  d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                />
+              </svg>
+              Copy
+            </button>
+          </div>
+          <p class="link-copy-note">
+            Link có hiệu lực vĩnh viễn. Bất kỳ ai có link đều có thể làm bài
+            thi.
+          </p>
+        </div>
+        <div class="smh-popover__footer">
+          <button
+            type="button"
+            class="smh-btn smh-btn--ghost smh-btn--full"
+            id="btn-close-share-link"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

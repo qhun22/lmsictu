@@ -1,0 +1,22 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lỗi — {{ quiz.title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'assets/css/exam.css' %}?v=20260819" />
+</head>
+<body>
+  <div class="error-page">
+    <div class="error-card">
+      <div class="error-icon">⚠️</div>
+      <h1 class="error-title">Không tìm thấy bài thi</h1>
+      <p class="error-message">{{ message|default:'Đề thi không tồn tại hoặc đã bị xóa.' }}</p>
+      <a href="/" class="btn-home">Về trang chủ</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -63,9 +63,10 @@
 }
 
 .smh-header-inner {
-  max-width: 1400px;
-  width: 95%;
-  margin: 0 auto;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0 30px;
   height: 58px;
   display: flex;
   align-items: center;
@@ -111,10 +112,10 @@
 }
 
 .smh-main {
-  max-width: 1400px;
-  width: 95%;
-  margin: 0 auto;
-  padding: 24px 40px 48px;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 20px 30px 48px;
 }
 
 /* ╔══════════════════════════════════════════════════════════════╗
@@ -122,9 +123,8 @@
    ╚══════════════════════════════════════════════════════════════╝ */
 .smh-layout {
   display: grid;
-  /* Desktop: cột trái 40%, cột phải 60%, gap 20px */
-  grid-template-columns: 2fr 3fr;
-  gap: 20px;
+  grid-template-columns: 380px minmax(0, 1fr);
+  gap: 24px;
   align-items: start; /* đỉnh bằng nhau, không kéo dãn */
 }
 
@@ -363,6 +363,16 @@
   color: var(--s-text-muted);
 }
 
+.smh-card-link-status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #d97706;
+}
+
+.smh-card-link-status.is-linked {
+  color: #059669;
+}
+
 /* ── ACTION BUTTONS (hover mới hiện) ── */
 .smh-card-actions {
   display: flex;
@@ -536,6 +546,10 @@
 @media (max-width: 480px) {
   .smh-header {
     padding: 0 14px;
+  }
+
+  .smh-header-inner {
+    padding: 0;
   }
 }
 
@@ -827,6 +841,54 @@
   border-radius: 50%;
   background: currentColor;
   flex-shrink: 0;
+}
+
+.smh-modal-week-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.smh-modal-week-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 100px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.smh-modal-week-link.is-linked {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.smh-modal-week-edit {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 100px;
+  color: var(--s-accent-hover);
+  background: var(--s-accent-light);
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.smh-modal-week-edit:hover {
+  background: var(--s-accent);
+  color: #fff;
+}
+
+.smh-modal-week-edit.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 /* Toggle switch (Hoạt động / Tạm ngưng) */

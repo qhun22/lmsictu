@@ -1,0 +1,176 @@
+{% load static %}
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ page_title|default:'Làm bài thi' }} — {{ quiz.title }}</title>
+    <meta name="csrf-token" content="{{ csrf_token }}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/exam.css' %}?v=20260819"
+    />
+  </head>
+  <body>
+    <div class="exam-wrapper">
+      <!-- Header -->
+      <header class="exam-header">
+        <div class="exam-header__inner">
+          <div class="exam-header__left">
+            <h1 class="exam-title">{{ quiz.title|default:'Bài thi' }}</h1>
+            {% if quiz.subject %}<span class="exam-subject"
+              >{{ quiz.subject }}</span
+            >{% endif %}
+          </div>
+          <div class="exam-header__right">
+            <div class="exam-timer" id="exam-timer">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                width="16"
+                height="16"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 12" />
+              </svg>
+              <span id="timer-display">--:--</span>
+            </div>
+            <div class="exam-progress-text">
+              <span id="answered-count">0</span>/<span id="total-count"
+                >{{ quiz.questions|length }}</span
+              >
+            </div>
+            <button type="button" class="btn-submit" id="btn-submit">
+              Nộp bài
+            </button>
+          </div>
+        </div>
+        <!-- Progress bar -->
+        <div class="exam-progress-bar">
+          <div class="exam-progress-bar__fill" id="progress-fill"></div>
+        </div>
+      </header>
+
+      <!-- Main content -->
+      <main class="exam-main" id="exam-main">
+        <div class="exam-questions" id="exam-questions">
+          <!-- Câu hỏi sẽ được render bằng JS -->
+        </div>
+      </main>
+
+      <!-- Footer nav -->
+      <div class="exam-footer">
+        <button type="button" class="btn-nav" id="btn-prev" disabled>
+          ← Câu trước
+        </button>
+        <div class="exam-footer__dots" id="question-dots"></div>
+        <button type="button" class="btn-nav" id="btn-next">Câu tiếp →</button>
+      </div>
+    </div>
+
+    <!-- Submit modal -->
+    <div class="modal-overlay" id="modal-submit" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true">
+        <h2 class="modal-card__title">Nộp bài thi?</h2>
+        <p class="modal-card__body">
+          Bạn đã trả lời <strong id="modal-answered">0</strong>/<span
+            id="modal-total"
+            >{{ quiz.questions|length }}</span
+          >
+          câu.
+        </p>
+        <p class="modal-card__note">Bạn không thể sửa lại sau khi nộp.</p>
+        <div class="modal-card__actions">
+          <button type="button" class="btn-ghost" id="modal-cancel">Hủy</button>
+          <button type="button" class="btn-primary" id="modal-confirm">
+            Nộp ngay
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result modal -->
+    <div class="modal-overlay" id="modal-result" hidden>
+      <div
+        class="modal-card modal-card--result"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div class="result-icon" id="result-icon">🏆</div>
+        <h2 class="result-title" id="result-title">Kết quả</h2>
+        <div class="result-score">
+          <span class="result-score__num" id="result-score">0</span>
+          <span class="result-score__label">/ 10</span>
+        </div>
+        <p class="result-detail" id="result-detail">
+          Đúng 0 / {{ quiz.questions|length }} câu
+        </p>
+        <div class="result-breakdown" id="result-breakdown"></div>
+        <button
+          type="button"
+          class="btn-primary btn-full"
+          id="btn-close-result"
+        >
+          Đóng
+        </button>
+      </div>
+    </div>
+
+    <!-- Copy link modal -->
+    <div class="modal-overlay" id="modal-link" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true">
+        <h2 class="modal-card__title">📋 Link bài thi</h2>
+        <p class="modal-card__body">Dán link bên dưới để chia sẻ bài thi:</p>
+        <div class="link-copy-row">
+          <input
+            type="text"
+            id="link-input"
+            class="link-input"
+            readonly
+            value=""
+          />
+          <button type="button" class="btn-copy" id="btn-copy-link">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              width="16"
+              height="16"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path
+                d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+              />
+            </svg>
+            Copy
+          </button>
+        </div>
+        <p class="link-note">
+          Link có hiệu lực vĩnh viễn. Bất kỳ ai có link đều có thể làm bài.
+        </p>
+        <button type="button" class="btn-ghost btn-full" id="modal-link-close">
+          Đóng
+        </button>
+      </div>
+    </div>
+
+    <script src="{% static 'assets/js/exam.js' %}?v=20260819-5"></script>
+    <script>
+      window.__QUIZ_DATA__ = {{ quiz_json|safe }};
+      window.__QUIZ_CODE__ = '{{ quiz.code }}';
+      window.__QUIZ_TITLE__ = '{{ quiz.title|escapejs }}';
+    </script>
+  </body>
+</html>

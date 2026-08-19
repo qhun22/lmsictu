@@ -19,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileRemove = $('tq-file-remove');
   const btnParse = $('tq-btn-parse');
   const btnClear = $('tq-btn-clear');
+  const btnShare = $('tq-btn-share');
+  const btnAddQuestion = $('tq-btn-add-question');
   const listEl = $('tq-list');
   const emptyState = $('tq-empty');
   const countNum = $('tq-count-num');
@@ -35,22 +37,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const statTf = $('tq-stat-tf');
   const statFill = $('tq-stat-fill');
   const statOrder = $('tq-stat-order');
+  const statDrag = $('tq-stat-drag');
+  const statGroup = $('tq-stat-group');
   const statSingleWrap = $('tq-stat-single-wrap');
   const statMultipleWrap = $('tq-stat-multiple-wrap');
   const statTfWrap = $('tq-stat-tf-wrap');
   const statFillWrap = $('tq-stat-fill-wrap');
   const statOrderWrap = $('tq-stat-order-wrap');
+  const statDragWrap = $('tq-stat-drag-wrap');
+  const statGroupWrap = $('tq-stat-group-wrap');
 
   if (!subjectSelect || !weekSelect || !dropzone) return;
 
   // ── Cập nhật các badge loại câu hỏi trong header ──
   function updateTypeCounters(s) {
-    // s là object { single, multiple, tf, fill, order, unknown, duplicate }
+    // s là object { single, multiple, tf, fill, order, drag, unknown, duplicate }
     if (statSingle) statSingle.textContent = s.single || 0;
     if (statMultiple) statMultiple.textContent = s.multiple || 0;
     if (statTf) statTf.textContent = s.tf || 0;
     if (statFill) statFill.textContent = s.fill || 0;
     if (statOrder) statOrder.textContent = s.order || 0;
+    if (statDrag) statDrag.textContent = s.drag || 0;
+    if (statGroup) statGroup.textContent = s.group || 0;
     if (statUnknown) statUnknown.textContent = s.unknown || 0;
     if (statDuplicate) statDuplicate.textContent = s.duplicate || 0;
     if (statSingleWrap) statSingleWrap.hidden = !(s.single);
@@ -58,11 +66,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (statTfWrap) statTfWrap.hidden = !(s.tf);
     if (statFillWrap) statFillWrap.hidden = !(s.fill);
     if (statOrderWrap) statOrderWrap.hidden = !(s.order);
+    if (statDragWrap) statDragWrap.hidden = !(s.drag);
+    if (statGroupWrap) statGroupWrap.hidden = !(s.group);
     if (statDuplicateWrap) statDuplicateWrap.hidden = !(s.duplicate);
   }
 
   let currentFile = null;
   let questions = [];
+  let editingQuizCode = new URLSearchParams(window.location.search).get('quiz');
 
   // ── Storage helpers (đồng bộ với tao-mon-hoc.js) ──
   function loadSubjects() {
@@ -218,6 +229,11 @@ document.addEventListener('DOMContentLoaded', () => {
   subjectSelect.addEventListener('change', () => {
     updateWeeks();
     btnParse.disabled = !currentFile || !subjectSelect.value || weekSelect.disabled;
+
+    // Khởi tạo icon có sẵn trong HTML, bao gồm empty state.
+    if (window.lucide && window.lucide.createIcons) {
+      window.lucide.createIcons();
+    }
   });
   weekSelect.addEventListener('change', () => {
     btnParse.disabled = !currentFile || !subjectSelect.value || weekSelect.disabled;
@@ -293,12 +309,147 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.infoToast) window.infoToast('Đã xóa', 'Danh sách câu hỏi đã được làm mới');
   });
 
+  btnAddQuestion?.addEventListener('click', () => {
+    const question = {
+      id: `manual-${Date.now()}`,
+      _isDraft: true,
+      number: questions.length + 1,
+      text: '',
+      type: 'single_choice',
+      type_label: '1 đáp án đúng',
+      options: [
+        { label: 'A', text: '', correct: false },
+        { label: 'B', text: '', correct: false },
+      ],
+      correct_options: [],
+      answer: null,
+    };
+    questions.push(question);
+    renderQuestions(questions, []);
+    openQuestionSettings(question.id);
+  });
+
+  // ── Share / Tạo link ──
+  const modalLink = $('modal-link');
+  const shareLinkInput = $('share-link-input');
+  const btnCopyLink = $('btn-copy-share-link');
+  const btnCloseLink = $('btn-close-share-link');
+
+  function openShareModal(link) {
+    shareLinkInput.value = link;
+    modalLink.hidden = false;
+    btnCopyLink.classList.remove('is-copied');
+    btnCopyLink.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
+  }
+
+  function closeShareModal() {
+    modalLink.hidden = true;
+  }
+
+  btnShare?.addEventListener('click', async () => {
+    if (!questions || questions.length === 0) {
+      if (window.errorToast) window.errorToast('Chưa có câu hỏi', 'Vui lòng parse câu hỏi trước.');
+      return;
+    }
+    btnShare.disabled = true;
+    btnShare.textContent = 'Đang tạo...';
+    try {
+      const subjectName = subjectSelect?.value || '';
+      const weekIndex = weekSelect?.value || '';
+      const endpoint = editingQuizCode
+        ? `/api/quiz/${encodeURIComponent(editingQuizCode)}/update/`
+        : '/api/save-quiz/';
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({
+          questions: questions,
+          subject: subjectName,
+          week_index: weekIndex,
+          title: subjectName || 'Bài thi',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (subjectName && weekIndex !== '') {
+          try {
+            const weeklyMap = JSON.parse(localStorage.getItem('qhun22_subjects_weeks') || '{}');
+            const weeks = weeklyMap[subjectName] || [];
+            const week = weeks[Number(weekIndex)];
+            if (week) {
+              week.link = data.link;
+              localStorage.setItem('qhun22_subjects_weeks', JSON.stringify(weeklyMap));
+            }
+          } catch {
+            // Không chặn việc tạo link nếu localStorage không khả dụng.
+          }
+        }
+        if (editingQuizCode) {
+          openShareModal(`${window.location.origin}/e/${editingQuizCode}/`);
+        } else {
+          openShareModal(data.link);
+        }
+      } else {
+        if (window.errorToast) window.errorToast('Lỗi', data.message || 'Không thể tạo link.');
+      }
+    } catch (err) {
+      if (window.errorToast) window.errorToast('Lỗi kết nối', 'Không thể kết nối server.');
+    } finally {
+      btnShare.disabled = false;
+      btnShare.innerHTML = editingQuizCode
+        ? 'Lưu thay đổi'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Tạo link làm bài';
+    }
+  });
+
+  btnCopyLink?.addEventListener('click', () => {
+    if (!shareLinkInput.value) return;
+    navigator.clipboard.writeText(shareLinkInput.value).then(() => {
+      btnCopyLink.classList.add('is-copied');
+      btnCopyLink.textContent = 'Đã copy!';
+      setTimeout(() => {
+        btnCopyLink.classList.remove('is-copied');
+        btnCopyLink.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
+      }, 2000);
+    });
+  });
+
+  btnCloseLink?.addEventListener('click', closeShareModal);
+  modalLink?.addEventListener('click', (e) => {
+    if (e.target === modalLink) closeShareModal();
+  });
+
   // ── Render ──
   // ╔══════════════════════════════════════════════════════════════╗
   // ║  Render phần chỉnh sửa cho 3 dạng đặc biệt                    ║
   // ╚══════════════════════════════════════════════════════════════╝
   function renderEditSpecial(q) {
     if (q.type === 'true_false') {
+      if (Array.isArray(q.statements) && q.statements.length) {
+        return `
+          <div class="tq-edit-row tq-edit-grouped-statements-row">
+            <span class="tq-edit-label">Toàn bộ mệnh đề (${q.statements.length})</span>
+            <div class="tq-special tq-special--tf tq-special--tf-grouped">
+              <p class="tq-tf-grouped-title">Các mệnh đề và đáp án</p>
+            ${q.statements.map((statement, index) => `
+              <div class="tq-tf-statement tq-tf-statement--editable" data-statement-index="${index}">
+                <span class="tq-tf-statement__num">${index + 1}</span>
+                <textarea class="tq-tf-statement__input" data-statement-text="${index}" rows="2">${escapeHtml(statement.text)}</textarea>
+                <button type="button" class="tq-tf-option tq-tf-edit-option ${statement.answer === 'true' ? 'is-correct' : ''}" data-tf-value="true" data-statement-index="${index}">
+                  <i data-lucide="check" class="tq-icon tq-icon--sm"></i> Đúng
+                </button>
+                <button type="button" class="tq-tf-option tq-tf-edit-option ${statement.answer === 'false' ? 'is-correct' : ''}" data-tf-value="false" data-statement-index="${index}">
+                  <i data-lucide="x" class="tq-icon tq-icon--sm"></i> Sai
+                </button>
+              </div>
+            `).join('')}
+            <button type="button" class="tq-add-statement" data-action="add-statement">
+              + Thêm mệnh đề Đúng/Sai
+            </button>
+            </div>
+          </div>
+        `;
+      }
       const correct = (q.correct_options || [])[0];
       const tf = correct
         ? /sai|false/.test(correct.text.toLowerCase())
@@ -340,6 +491,27 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
     if (q.type === 'ordering') {
+      if (Array.isArray(q.statements) && q.statements.length) {
+        return `
+          <div class="tq-edit-row tq-edit-grouped-statements-row">
+            <span class="tq-edit-label">Toàn bộ mệnh đề sắp xếp (${q.statements.length})</span>
+            <div class="tq-edit-order-grouped">
+              ${q.statements.map((statement, index) => `
+                <div class="tq-edit-order-statement" data-order-statement="${index}">
+                  <span class="tq-tf-statement__num">${index + 1}</span>
+                  <label class="tq-edit-label">Từ lộn xộn</label>
+                  <input type="text" class="tq-edit-input" data-order-words="${index}" value="${escapeHtml((statement.ordering_words || []).join('|'))}" placeholder="VD: Huy|name|is|My" />
+                  <label class="tq-edit-label">Thứ tự đúng</label>
+                  <input type="text" class="tq-edit-input" data-order-sequence="${index}" value="${escapeHtml((statement.ordering_sequence || []).join('|'))}" placeholder="VD: My|name|is|Huy" />
+                </div>
+              `).join('')}
+              <button type="button" class="tq-add-statement" data-action="add-order-statement">
+                + Thêm mệnh đề sắp xếp
+              </button>
+            </div>
+          </div>
+        `;
+      }
       const words = (q.ordering_words || []).join('|');
       const seq = (q.ordering_sequence || []).join('|');
       return `
@@ -365,6 +537,54 @@ document.addEventListener('DOMContentLoaded', () => {
           <p class="tq-edit-hint">
             <i data-lucide="info" class="tq-icon tq-icon--sm"></i>
             Có thể kéo-thả các thẻ từ để thay đổi thứ tự sau khi lưu.
+          </p>
+        </div>
+      `;
+    }
+    if (q.type === 'drag_into_groups') {
+      const groups = q.drag_groups?.length ? q.drag_groups : [{ label: '', answers: [] }];
+      return `
+        <div class="tq-edit-row tq-edit-grouped-statements-row">
+          <span class="tq-edit-label">Các nhóm phân loại (${groups.length})</span>
+          <div class="tq-edit-order-grouped">
+            ${groups.map((group, index) => `
+              <div class="tq-edit-order-statement" data-drag-group="${index}">
+                <span class="tq-tf-statement__num">${index + 1}</span>
+                <label class="tq-edit-label">Tên nhóm</label>
+                <input type="text" class="tq-edit-input" data-drag-group-label="${index}" value="${escapeHtml(group.label || '')}" placeholder="VD: Nguyên nhân chủ quan" />
+                <label class="tq-edit-label">Đáp án trong nhóm (mỗi dòng 1 đáp án)</label>
+                <textarea class="tq-edit-textarea tq-edit-textarea--sm" data-drag-group-answers="${index}" placeholder="VD: Nhân tố A">${escapeHtml((group.answers || []).join('\n'))}</textarea>
+              </div>
+            `).join('')}
+            <button type="button" class="tq-add-statement" data-action="add-drag-group">
+              + Thêm nhóm
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    if (q.type === 'drag_into_text') {
+      const answers = (q.drag_answers || []).join('\n');
+      const sentences = (q.drag_sentences || []).map((s) => s.text).join('\n');
+      return `
+        <div class="tq-edit-row">
+          <label class="tq-edit-label" for="tq-edit-drag-sentences">Câu có ___ (mỗi dòng 1 câu)</label>
+          <textarea
+            id="tq-edit-drag-sentences"
+            class="tq-edit-textarea tq-edit-textarea--sm"
+            placeholder="VD: Đảng Cộng sản là ___ quan trọng nhất."
+          >${escapeHtml(sentences)}</textarea>
+        </div>
+        <div class="tq-edit-row">
+          <label class="tq-edit-label" for="tq-edit-drag-answers">Đáp án kéo thả (mỗi dòng 1 đáp án)</label>
+          <textarea
+            id="tq-edit-drag-answers"
+            class="tq-edit-textarea tq-edit-textarea--sm"
+            placeholder="VD: nhân tố chủ quan"
+          >${escapeHtml(answers)}</textarea>
+          <p class="tq-edit-hint">
+            <i data-lucide="info" class="tq-icon tq-icon--sm"></i>
+            Các đáp án sẽ được hiển thị ở trên để kéo vào chỗ <code>___</code>.
           </p>
         </div>
       `;
@@ -397,6 +617,9 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="tq-edit-row">
         <span class="tq-edit-label">Các đáp án</span>
         <ul class="tq-edit-options">${optionsHtml}</ul>
+        <button type="button" class="tq-edit-add-option" data-action="add-option">
+          + Thêm đáp án
+        </button>
       </div>
     `;
   }
@@ -412,6 +635,25 @@ document.addEventListener('DOMContentLoaded', () => {
   // ╚══════════════════════════════════════════════════════════════╝
   function renderSpecial(q) {
     if (q.type === 'true_false') {
+      if (Array.isArray(q.statements) && q.statements.length) {
+        return `
+          <div class="tq-special tq-special--tf tq-special--tf-grouped tq-preview-grouped">
+            <p class="tq-tf-grouped-title">Các mệnh đề và đáp án</p>
+            ${q.statements.map((statement, index) => `
+              <div class="tq-tf-statement tq-tf-statement--preview">
+                <span class="tq-tf-statement__num">${index + 1}</span>
+                <span class="tq-tf-statement__text">${escapeHtml(statement.text)}</span>
+                <span class="tq-tf-option ${statement.answer === 'true' ? 'is-correct' : ''}">
+                  <i data-lucide="check" class="tq-icon tq-icon--sm"></i> Đúng
+                </span>
+                <span class="tq-tf-option ${statement.answer === 'false' ? 'is-correct' : ''}">
+                  <i data-lucide="x" class="tq-icon tq-icon--sm"></i> Sai
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
       const correct = (q.correct_options || [])[0];
       const ver = correct ? correct.text.replace(/[.。]/g, '').toLowerCase() : '';
       const isTrue = /đúng|true/.test(ver);
@@ -461,6 +703,18 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }
     if (q.type === 'ordering') {
+      if (Array.isArray(q.statements) && q.statements.length) {
+        return `<div class="tq-special tq-special--order tq-special--order-grouped">
+          <p class="tq-order-grouped-title">Các mệnh đề sắp xếp</p>
+          ${q.statements.map((statement, index) => `
+            <div class="tq-order-statement">
+              <span class="tq-tf-statement__num">${index + 1}</span>
+              <div class="tq-order-row"><span class="tq-order-label">Từ lộn xộn</span><div class="tq-order-tiles">${statement.ordering_words.map((word) => `<span class="tq-order-tile">${escapeHtml(word)}</span>`).join('')}</div></div>
+              <div class="tq-order-row"><span class="tq-order-label">Thứ tự đúng</span><div class="tq-order-tiles">${statement.ordering_sequence.map((word) => `<span class="tq-order-tile tq-order-tile--correct">${escapeHtml(word)}</span>`).join('')}</div></div>
+            </div>
+          `).join('')}
+        </div>`;
+      }
       const words = q.ordering_words || [];
       const seq = q.ordering_sequence || [];
       const markerBlock = q.marker
@@ -505,6 +759,74 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
     }
+    if (q.type === 'drag_into_text' || q.type === 'drag_into_groups') {
+      const answers = q.drag_answers || [];
+      const groups = q.drag_groups || [];
+      if (q.type === 'drag_into_groups' || groups.length) {
+        const groupHtml = groups.map((group, index) => `
+          <div class="tq-drag-group">
+            <div class="tq-drag-group-title"><span class="tq-tf-statement__num">${index + 1}</span>${escapeHtml(group.label)}</div>
+            <div class="tq-drag-group-answers">${(group.answers || []).map((answer) => `<span class="tq-drag-tile tq-drag-tile--placed">${escapeHtml(answer)}</span>`).join('')}</div>
+          </div>
+        `).join('');
+        const groupedAnswers = groups.flatMap((group) => group.answers || []);
+        return `<div class="tq-special tq-special--drag tq-special--drag-groups">
+          <div class="tq-drag-pool"><span class="tq-drag-pool-label">Đáp án kéo thả:</span><div class="tq-drag-tiles">${groupedAnswers.map((answer) => `<span class="tq-drag-tile">${escapeHtml(answer)}</span>`).join('')}</div></div>
+          <div class="tq-drag-groups">${groupHtml}</div>
+        </div>`;
+      }
+      const rawSentences = q.drag_sentences || [];
+      // Đảo ngược: parser đọc câu từ dưới lên, để hiển thị đúng thứ tự thì cần đảo
+      const sentences = rawSentences.slice().reverse();
+      const missingHint = (sentences.length === 0 && answers.length === 0)
+        ? `<p class="tq-drag-missing">
+            <i data-lucide="alert-triangle" class="tq-icon tq-icon--sm"></i>
+            <span>Thiếu cả câu có ___ lẫn đáp án (*)</span>
+            <em class="tq-fill-hint">
+              Cần dòng <code>*đáp án</code> cho mỗi chỗ trống ___ trong câu.
+            </em>
+          </p>`
+        : (sentences.length === 0
+          ? `<p class="tq-drag-missing">
+              <i data-lucide="alert-triangle" class="tq-icon tq-icon--sm"></i>
+              <span>Thiếu câu có ___ (chỗ trống)</span>
+            </p>`
+          : (answers.length === 0
+            ? `<p class="tq-drag-missing">
+                <i data-lucide="alert-triangle" class="tq-icon tq-icon--sm"></i>
+                <span>Thiếu đáp án (*)</span>
+              </p>`
+            : ''));
+
+      // Pool answers (reversed để khớp sentences đã đảo)
+      const answersHtml = answers.length
+        ? answers.slice().reverse().map((a) => `<span class="tq-drag-tile" draggable="true" data-answer="${escapeHtml(a)}">${escapeHtml(a)}</span>`).join('')
+        : '<span class="tq-drag-tile tq-drag-tile--muted">(chưa có đáp án)</span>';
+
+      // Sentences với slot ___ đã thay bằng đáp án (filled)
+      const sentencesHtml = sentences.length
+        ? sentences.map((s) => {
+            const answer = s.answer || '';
+            const filled = s.text.replace(
+              /___+/,
+              `<span class="tq-drag-slot" data-answer="${escapeHtml(answer)}">${escapeHtml(answer) || '___'}</span>`,
+            );
+            // filled đã chứa HTML span, KHÔNG escape lại
+            return `<p class="tq-drag-sentence">${filled}</p>`;
+          }).join('')
+        : '<p class="tq-drag-sentence tq-drag-sentence--muted">(chưa có câu)</p>';
+
+      return `
+        <div class="tq-special tq-special--drag">
+          <div class="tq-drag-pool">
+            <span class="tq-drag-pool-label">Đáp án kéo thả:</span>
+            <div class="tq-drag-tiles">${answersHtml}</div>
+          </div>
+          <div class="tq-drag-sentences">${sentencesHtml}</div>
+          ${missingHint}
+        </div>
+      `;
+    }
     return '';
   }
 
@@ -525,7 +847,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return !!q.fill_blank_answer;
       }
       if (q.type === 'true_false') {
+        if (Array.isArray(q.statements) && q.statements.length) {
+          return q.statements.length > 0
+            && q.statements.every((statement) => statement.answer === 'true' || statement.answer === 'false');
+        }
         return !!q.answer;
+      }
+      if (q.type === 'drag_into_groups') {
+        return (q.drag_groups || []).length > 0
+          && q.drag_groups.every((group) => group.label && (group.answers || []).length > 0);
+      }
+      if (q.type === 'drag_into_text') {
+        return (q.drag_sentences || []).length > 0
+          && (q.drag_answers || []).length > 0;
       }
       return q.options && q.options.length >= 2 && q.answer;
     }).length;
@@ -538,6 +872,8 @@ document.addEventListener('DOMContentLoaded', () => {
       tf: items.filter((q) => q.type === 'true_false').length,
       fill: items.filter((q) => q.type === 'fill_in_blank').length,
       order: items.filter((q) => q.type === 'ordering').length,
+      drag: items.filter((q) => q.type === 'drag_into_text').length,
+      group: items.filter((q) => q.type === 'drag_into_groups').length,
       unknown: items.filter((q) => q.type === 'unknown').length,
       duplicate: items.filter((q) => q.isDuplicate).length,
     };
@@ -570,10 +906,12 @@ document.addEventListener('DOMContentLoaded', () => {
       listEl.innerHTML = '';
       emptyState.hidden = false;
       btnClear.disabled = true;
+      btnShare.disabled = true;
       return;
     }
     emptyState.hidden = true;
     btnClear.disabled = false;
+    btnShare.disabled = false;
 
     listEl.innerHTML = items.map((q, idx) => {
       const opts = (q.options || []).map((o) => `
@@ -588,7 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const typeClass = `tq-type--${q.type || 'unknown'}`;
       const typeLabel = q.type_label || 'Chưa xác định';
       const correctLabels = (q.correct_options || []).map((o) => o.label).join(', ');
-      const isSpecial = q.type === 'ordering' || q.type === 'fill_in_blank';
+      const isSpecial = q.type === 'ordering' || q.type === 'fill_in_blank' || q.type === 'drag_into_text' || q.type === 'drag_into_groups';
 
       // STT hiển thị = thứ tự thật trong danh sách (liên tục 1, 2, 3...)
       const displayNum = idx + 1;
@@ -596,16 +934,25 @@ document.addEventListener('DOMContentLoaded', () => {
         q.number != null && q.number !== displayNum;
 
       // Hiển thị text câu hỏi. Nếu text rỗng, ưu tiên marker; nếu cả 2 rỗng → placeholder.
-      const displayText = q.text || q.marker || '';
+      const displayText = q.type === 'ordering'
+        ? (q.text || 'Sắp xếp lại câu sau sao cho đúng cấu trúc.')
+        : q.type === 'true_false' && q.statements?.length
+          ? 'Chọn đáp án Đúng Sai phù hợp.'
+          : q.type === 'drag_into_text'
+            ? (q.text || 'Kéo thả các từ vào vị trí thích hợp.')
+          : (q.text || q.marker || '');
       const textHtml = displayText
         ? escapeHtml(displayText)
         : '<em class="tq-text-empty">(Không có nội dung)</em>';
+      const groupedTextHtml = Array.isArray(q.statements) && q.statements.length && q.type !== 'ordering' && q.type !== 'true_false'
+        ? ''
+        : textHtml;
 
       return `
         <li class="tq-question ${q.isDuplicate ? 'is-duplicate' : ''}" data-qid="${q.id}">
           <div class="tq-question-header">
             <span class="tq-question-num">${displayNum}</span>
-            <p class="tq-question-text">${textHtml}</p>
+            ${groupedTextHtml ? `<p class="tq-question-text">${groupedTextHtml}</p>` : ''}
             <div class="tq-question-actions">
               <button
                 type="button"
@@ -642,6 +989,8 @@ document.addEventListener('DOMContentLoaded', () => {
               : ''}
             ${isSpecial
               ? ''  // ordering/fill đã hiển thị đáp án trong renderSpecial
+              : q.type === 'true_false' && q.statements?.length
+                ? ''
               : (correctLabels
                 ? `<span class="tq-answer">Đáp án đúng: <strong>${escapeHtml(correctLabels)}</strong></span>`
                 : `<span class="tq-answer tq-answer--missing">Chưa xác định đáp án đúng</span>`)
@@ -650,7 +999,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           ${renderSpecial(q)}
 
-          <ul class="tq-options">${opts}</ul>
+          ${q.type === 'true_false' ? '' : `<ul class="tq-options">${opts}</ul>`}
         </li>
       `;
     }).join('');
@@ -740,18 +1089,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let currentEditingQid = null;
+  let questionEditSnapshot = null;
+  let questionEditSaved = false;
 
   function openQuestionSettings(qid) {
     const overlay = ensurePopover();
     const q = questions.find((x) => x.id === qid);
     if (!q) return;
 
+    if (currentEditingQid !== qid) {
+      questionEditSnapshot = JSON.stringify(q);
+      questionEditSaved = false;
+    }
     currentEditingQid = qid;
     const body = overlay.querySelector('#tq-settings-body');
 
     // STT hiển thị = index + 1
     const idx = questions.findIndex((x) => x.id === qid);
     const displayNum = idx >= 0 ? idx + 1 : q.number;
+    const isGroupedQuestion = (q.type === 'true_false' || q.type === 'ordering') && Array.isArray(q.statements) && q.statements.length;
 
     body.innerHTML = `
       <div class="tq-edit-row">
@@ -764,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       <div class="tq-edit-row">
         <span class="tq-edit-label">Loại câu hỏi</span>
-        <div class="tq-edit-type tq-edit-type--five" role="radiogroup">
+        <div class="tq-edit-type tq-edit-type--seven" role="radiogroup">
           <button
             type="button"
             class="tq-edit-type-btn ${q.type === 'single_choice' ? 'is-active' : ''}"
@@ -820,18 +1176,42 @@ document.addEventListener('DOMContentLoaded', () => {
             <i data-lucide="align-vertical-justify-center" class="tq-icon tq-icon--sm"></i>
             <span>Sắp xếp</span>
           </button>
+          <button
+            type="button"
+            class="tq-edit-type-btn ${q.type === 'drag_into_text' ? 'is-active' : ''}"
+            data-type="drag_into_text"
+            role="radio"
+            aria-checked="${q.type === 'drag_into_text'}"
+            title="Kéo thả đáp án"
+          >
+            <i data-lucide="grip" class="tq-icon tq-icon--sm"></i>
+            <span>Kéo thả</span>
+          </button>
+          <button
+            type="button"
+            class="tq-edit-type-btn ${q.type === 'drag_into_groups' ? 'is-active' : ''}"
+            data-type="drag_into_groups"
+            role="radio"
+            aria-checked="${q.type === 'drag_into_groups'}"
+            title="Phân loại đáp án vào từng nhóm"
+          >
+            <i data-lucide="rows-3" class="tq-icon tq-icon--sm"></i>
+            <span>Phân nhóm</span>
+          </button>
         </div>
       </div>
 
-      <div class="tq-edit-row">
-        <label class="tq-edit-label" for="tq-edit-text">Nội dung câu hỏi</label>
-        <textarea
-          id="tq-edit-text"
-          class="tq-edit-textarea"
-          rows="3"
-          placeholder="Nhập nội dung câu hỏi..."
-        >${escapeHtml(q.text || '')}</textarea>
-      </div>
+      ${isGroupedQuestion ? '' : `
+        <div class="tq-edit-row">
+          <label class="tq-edit-label" for="tq-edit-text">Nội dung câu hỏi</label>
+          <textarea
+            id="tq-edit-text"
+            class="tq-edit-textarea"
+            rows="3"
+            placeholder="Nhập nội dung câu hỏi..."
+          >${escapeHtml(q.text || '')}</textarea>
+        </div>
+      `}
 
       ${renderEditSpecial(q)}
     `;
@@ -845,6 +1225,106 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         btn.classList.add('is-active');
         btn.setAttribute('aria-checked', 'true');
+
+        if (btn.dataset.type === 'single_choice') {
+          const checkedOptions = [...body.querySelectorAll('.tq-edit-correct-cb:checked')];
+          checkedOptions.slice(1).forEach((checkbox) => {
+            checkbox.checked = false;
+          });
+        }
+
+        q.type = btn.dataset.type;
+        openQuestionSettings(qid);
+      });
+    });
+
+    body.querySelectorAll('.tq-tf-edit-option').forEach((button) => {
+      button.addEventListener('click', () => {
+        const statementIndex = Number(button.dataset.statementIndex);
+        const statement = q.statements?.[statementIndex];
+        if (!statement) return;
+        statement.answer = button.dataset.tfValue;
+        body.querySelectorAll(`.tq-tf-edit-option[data-statement-index="${statementIndex}"]`).forEach((option) => {
+          option.classList.toggle('is-correct', option === button);
+        });
+      });
+    });
+
+    body.querySelectorAll('[data-statement-text]').forEach((input) => {
+      input.addEventListener('input', () => {
+        const statement = q.statements?.[Number(input.dataset.statementText)];
+        if (statement) statement.text = input.value;
+      });
+    });
+
+    body.querySelector('[data-action="add-statement"]')?.addEventListener('click', () => {
+      q.statements.forEach((statement, index) => {
+        const input = body.querySelector(`[data-statement-text="${index}"]`);
+        if (input) statement.text = input.value;
+      });
+      q.statements.push({ text: '', answer: null });
+      openQuestionSettings(qid);
+      setTimeout(() => body.querySelector(`[data-statement-text="${q.statements.length - 1}"]`)?.focus(), 0);
+    });
+
+    body.querySelector('[data-action="add-order-statement"]')?.addEventListener('click', () => {
+      q.statements.forEach((statement, index) => {
+        const wordsInput = body.querySelector(`[data-order-words="${index}"]`);
+        const sequenceInput = body.querySelector(`[data-order-sequence="${index}"]`);
+        if (wordsInput) statement.ordering_words = wordsInput.value.split('|').map((word) => word.trim()).filter(Boolean);
+        if (sequenceInput) statement.ordering_sequence = sequenceInput.value.split('|').map((word) => word.trim()).filter(Boolean);
+      });
+      q.statements.push({ ordering_words: [], ordering_sequence: [] });
+      openQuestionSettings(qid);
+      setTimeout(() => body.querySelector(`[data-order-words="${q.statements.length - 1}"]`)?.focus(), 0);
+    });
+
+    body.querySelector('[data-action="add-drag-group"]')?.addEventListener('click', () => {
+      q.drag_groups = q.drag_groups || [];
+      body.querySelectorAll('[data-drag-group]').forEach((groupEl, index) => {
+        const labelInput = groupEl.querySelector(`[data-drag-group-label="${index}"]`);
+        const answersInput = groupEl.querySelector(`[data-drag-group-answers="${index}"]`);
+        q.drag_groups[index] = {
+          label: labelInput?.value.trim() || '',
+          answers: answersInput?.value.split('\n').map((answer) => answer.trim()).filter(Boolean) || [],
+        };
+      });
+      q.drag_groups.push({ label: '', answers: [] });
+      openQuestionSettings(qid);
+    });
+
+    body.querySelector('[data-action="add-option"]')?.addEventListener('click', () => {
+      if (!Array.isArray(q.options)) q.options = [];
+      const activeType = body.querySelector('.tq-edit-type-btn.is-active')?.dataset.type;
+      if (activeType) q.type = activeType;
+
+      const textInput = body.querySelector('#tq-edit-text');
+      if (textInput) q.text = textInput.value;
+      body.querySelectorAll('.tq-edit-option').forEach((row, index) => {
+        if (!q.options[index]) return;
+        const optionInput = row.querySelector('.tq-edit-option-input');
+        const correctInput = row.querySelector('.tq-edit-correct-cb');
+        if (optionInput) q.options[index].text = optionInput.value;
+        if (correctInput) q.options[index].correct = correctInput.checked;
+      });
+      const nextLabel = String.fromCharCode('A'.charCodeAt(0) + q.options.length);
+      q.options.push({ label: nextLabel, text: '', correct: false });
+      openQuestionSettings(qid);
+    });
+
+    body.addEventListener('change', (event) => {
+      const tfRadio = event.target.closest('input[name="tq-edit-tf"]');
+      if (tfRadio) {
+        body.querySelectorAll('.tq-edit-tf-item').forEach((item) => {
+          item.classList.toggle('is-active', item.querySelector('input') === tfRadio);
+        });
+        return;
+      }
+      const checkbox = event.target.closest('.tq-edit-correct-cb');
+      const activeType = body.querySelector('.tq-edit-type-btn.is-active')?.dataset.type;
+      if (!checkbox || activeType !== 'single_choice' || !checkbox.checked) return;
+      body.querySelectorAll('.tq-edit-correct-cb').forEach((other) => {
+        if (other !== checkbox) other.checked = false;
       });
     });
 
@@ -907,6 +1387,7 @@ document.addEventListener('DOMContentLoaded', () => {
     detectDuplicates();
 
     renderQuestions(questions, []);
+    saveCurrentQuiz();
     if (window.successToast) {
       window.successToast('Đã xóa', `Còn lại ${questions.length} câu hỏi`);
     }
@@ -976,7 +1457,65 @@ document.addEventListener('DOMContentLoaded', () => {
     const overlay = document.getElementById('tq-settings-overlay');
     if (overlay) overlay.hidden = true;
     document.body.classList.remove('tq-popover-open');
+    const draftIndex = questions.findIndex((question) => question._isDraft);
+    if (draftIndex !== -1) {
+      questions.splice(draftIndex, 1);
+      renderQuestions(questions, []);
+    } else if (currentEditingQid && questionEditSnapshot && !questionEditSaved) {
+      const question = questions.find((item) => item.id === currentEditingQid);
+      if (question) {
+        Object.assign(question, JSON.parse(questionEditSnapshot));
+        renderQuestions(questions, []);
+      }
+    }
     currentEditingQid = null;
+    questionEditSnapshot = null;
+    questionEditSaved = false;
+  }
+
+  async function loadExistingQuiz() {
+    if (!editingQuizCode) return;
+    try {
+      const response = await fetch(`/api/quiz/${encodeURIComponent(editingQuizCode)}/`, {
+        credentials: 'same-origin',
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tải đề');
+      questions = Array.isArray(data.questions) ? data.questions : [];
+      questions.forEach((question, index) => {
+        if (!question.id) question.id = `saved-${editingQuizCode}-${index}`;
+      });
+      if (data.subject && Array.from(subjectSelect.options).some((option) => option.value === data.subject)) {
+        subjectSelect.value = data.subject;
+        updateWeeks();
+        if (data.week_index != null) weekSelect.value = String(data.week_index);
+      }
+      detectDuplicates();
+      renderQuestions(questions, []);
+      if (btnShare) btnShare.innerHTML = 'Lưu thay đổi';
+      if (window.infoToast) window.infoToast('Đang chỉnh sửa', `Đề ${data.title || editingQuizCode}`);
+    } catch (error) {
+      editingQuizCode = null;
+      if (window.errorToast) window.errorToast('Lỗi', error.message);
+    }
+  }
+
+  async function saveCurrentQuiz() {
+    if (!editingQuizCode) return true;
+    try {
+      const response = await fetch(`/api/quiz/${encodeURIComponent(editingQuizCode)}/update/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        credentials: 'same-origin',
+        body: JSON.stringify({ questions }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || 'Không thể lưu đề');
+      return true;
+    } catch (error) {
+      if (window.errorToast) window.errorToast('Lỗi lưu đề', error.message);
+      return false;
+    }
   }
 
   function saveQuestionSettings() {
@@ -988,18 +1527,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!q) return closeQuestionSettings();
 
     // 1. Lấy text câu hỏi
-    const text = body.querySelector('#tq-edit-text').value.trim();
+    const textInput = body.querySelector('#tq-edit-text');
+    const text = textInput ? textInput.value.trim() : q.text;
     // 2. Lấy loại
     const activeTypeBtn = body.querySelector('.tq-edit-type-btn.is-active');
     const newType = activeTypeBtn ? activeTypeBtn.dataset.type : q.type;
 
     q.text = text;
     q.type = newType;
+    q._isDraft = false;
+    questionEditSaved = true;
 
     // 3. Lưu theo từng loại
     if (newType === 'true_false') {
+      if (Array.isArray(q.statements) && q.statements.length) {
+        body.querySelectorAll('[data-statement-text]').forEach((input) => {
+          const statement = q.statements[Number(input.dataset.statementText)];
+          if (statement) statement.text = input.value.trim();
+        });
+        q.correct_options = [];
+        q.answer = null;
+        q.type_label = 'Đúng / Sai';
+        q.is_true_false = true;
+        q.options = [];
+        q._isDraft = false;
+        detectDuplicates();
+        renderQuestions(questions, []);
+        saveCurrentQuiz();
+        closeQuestionSettings();
+        if (window.successToast) window.successToast('Đã lưu', 'Các đáp án Đúng/Sai đã được cập nhật');
+        return;
+      }
       const tfRadio = body.querySelector('input[name="tq-edit-tf"]:checked');
-      const tfValue = tfRadio ? tfRadio.value : 'true';
+      const tfValue = tfRadio ? tfRadio.value : '';
       q.options = [
         { label: 'A', text: 'Đúng', correct: tfValue === 'true' },
         { label: 'B', text: 'Sai', correct: tfValue === 'false' },
@@ -1008,8 +1568,9 @@ document.addEventListener('DOMContentLoaded', () => {
       q.is_true_false = true;
       q.is_ordering = false;
       q.is_fill_in_blank = false;
+      q.is_drag_into_text = false;
       q.type_label = 'Đúng / Sai';
-      q.answer = tfValue === 'true' ? 'A' : 'B';
+      q.answer = tfValue ? (tfValue === 'true' ? 'A' : 'B') : null;
     } else if (newType === 'fill_in_blank') {
       const ansInput = body.querySelector('#tq-edit-fill-answer');
       const ans = ansInput ? ansInput.value.trim() : '';
@@ -1019,9 +1580,34 @@ document.addEventListener('DOMContentLoaded', () => {
       q.is_fill_in_blank = true;
       q.is_true_false = false;
       q.is_ordering = false;
+      q.is_drag_into_text = false;
       q.type_label = 'Điền từ vào chỗ trống';
       q.answer = ans;
     } else if (newType === 'ordering') {
+      if (Array.isArray(q.statements) && q.statements.length) {
+        q.statements.forEach((statement, index) => {
+          const wordsInput = body.querySelector(`[data-order-words="${index}"]`);
+          const sequenceInput = body.querySelector(`[data-order-sequence="${index}"]`);
+          statement.ordering_words = wordsInput.value.split('|').map((word) => word.trim()).filter(Boolean);
+          statement.ordering_sequence = sequenceInput.value.split('|').map((word) => word.trim()).filter(Boolean);
+        });
+        q.ordering_words = null;
+        q.ordering_sequence = null;
+        q.options = [];
+        q.correct_options = [];
+        q.is_ordering = true;
+        q.is_true_false = false;
+        q.is_fill_in_blank = false;
+        q.is_drag_into_text = false;
+        q.type_label = 'Sắp xếp từ';
+        q.answer = null;
+        detectDuplicates();
+        renderQuestions(questions, []);
+        saveCurrentQuiz();
+        closeQuestionSettings();
+        if (window.successToast) window.successToast('Đã lưu', 'Các mệnh đề sắp xếp đã được cập nhật');
+        return;
+      }
       const wordsInput = body.querySelector('#tq-edit-order-words');
       const seqInput = body.querySelector('#tq-edit-order-seq');
       const words = (wordsInput ? wordsInput.value : '').split('|').map((s) => s.trim()).filter(Boolean);
@@ -1033,8 +1619,61 @@ document.addEventListener('DOMContentLoaded', () => {
       q.is_ordering = true;
       q.is_true_false = false;
       q.is_fill_in_blank = false;
+      q.is_drag_into_text = false;
       q.type_label = 'Sắp xếp từ';
       q.answer = seq.join('|');
+    } else if (newType === 'drag_into_groups') {
+      const groups = [];
+      body.querySelectorAll('[data-drag-group]').forEach((groupEl, index) => {
+        const labelInput = groupEl.querySelector(`[data-drag-group-label="${index}"]`);
+        const answersInput = groupEl.querySelector(`[data-drag-group-answers="${index}"]`);
+        const answers = answersInput
+          ? answersInput.value.split('\n').map((answer) => answer.trim()).filter(Boolean)
+          : [];
+        if (labelInput?.value.trim() || answers.length) {
+          groups.push({ label: labelInput?.value.trim() || '', answers });
+        }
+      });
+      q.drag_groups = groups;
+      q.drag_answers = groups.flatMap((group) => group.answers);
+      q.drag_sentences = null;
+      q.options = [];
+      q.correct_options = [];
+      q.is_drag_into_text = true;
+      q.is_true_false = false;
+      q.is_ordering = false;
+      q.is_fill_in_blank = false;
+      q.type_label = 'Kéo thả theo nhóm';
+      q.answer = null;
+    } else if (newType === 'drag_into_text') {
+      // Đáp án: mỗi dòng là 1 answer, phân cách bằng newline
+      const answersInput = body.querySelector('#tq-edit-drag-answers');
+      const answers = answersInput
+        ? answersInput.value.split('\n').map((s) => s.trim()).filter(Boolean)
+        : [];
+      q.drag_answers = answers;
+      // Câu có ___: mỗi dòng là 1 câu với ___ ở trong
+      const sentencesInput = body.querySelector('#tq-edit-drag-sentences');
+      const sentences = sentencesInput
+        ? sentencesInput.value.split('\n').map((s) => s.trim()).filter(Boolean)
+        : [];
+      q.drag_sentences = sentences.map((text) => ({ text }));
+      // Match answers → sentences
+      for (let i = 0; i < q.drag_sentences.length; i++) {
+        q.drag_sentences[i].answer = answers[i] || null;
+      }
+      q.options = [];
+      q.correct_options = [];
+      q.is_drag_into_text = true;
+      q.drag_groups = [];
+      q.is_true_false = false;
+      q.is_ordering = false;
+      q.is_fill_in_blank = false;
+      q.type_label = 'Kéo thả đáp án';
+      q.answer = null;
+    } else if (newType === 'true_false' && Array.isArray(q.statements)) {
+      q.correct_options = [];
+      q.answer = null;
     } else {
       // single_choice / multiple_response / unknown
       const newOptions = [];
@@ -1054,6 +1693,9 @@ document.addEventListener('DOMContentLoaded', () => {
       q.is_true_false = false;
       q.is_ordering = false;
       q.is_fill_in_blank = false;
+      q.is_drag_into_text = false;
+      q.drag_answers = null;
+      q.drag_sentences = null;
 
       const correctCount = q.correct_options.length;
       if (newType === 'single_choice') {
@@ -1071,6 +1713,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Re-render (tính lại duplicate vì text/answer có thể đã đổi)
     detectDuplicates();
     renderQuestions(questions, []);
+    saveCurrentQuiz();
     closeQuestionSettings();
 
     if (window.successToast) {
@@ -1081,4 +1724,5 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Init ──
   populateSubjects();
   renderQuestions([], []);
+  loadExistingQuiz();
 });

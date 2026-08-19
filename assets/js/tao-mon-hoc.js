@@ -14,6 +14,31 @@ document.addEventListener('DOMContentLoaded', () => {
   const weeklyMap = loadWeeklyMap(); // { subjectName: [ {name, topics[]}, ... ] }
 
   renderAll();
+  syncQuizLinks();
+
+  async function syncQuizLinks() {
+    try {
+      const response = await fetch('/api/quiz-links/', {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      (data.links || []).forEach((quiz) => {
+        const weeks = weeklyMap[quiz.subject] || [];
+        const week = weeks[Number(quiz.week_index)];
+        if (week) {
+          week.link = quiz.link;
+          week.quizCode = quiz.code;
+          week.active = quiz.is_active;
+        }
+      });
+      saveWeeklyMap(weeklyMap);
+      renderAll();
+    } catch {
+      // Giữ dữ liệu local hiện có nếu API không truy cập được.
+    }
+  }
 
   // ── Submit form: thêm môn học mới ──
   form.addEventListener('submit', (e) => {
@@ -97,7 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     list.innerHTML = reversed.map((name, i) => {
       const realIndex = items.length - 1 - i;
-      const weeks = (weeklyMap[name] || []).length;
+      const subjectWeeks = weeklyMap[name] || [];
+      const linkedWeeks = subjectWeeks.filter((week) => week.link).length;
       return `
         <li class="smh-card" style="animation-delay: ${i * 30}ms">
           <div class="smh-card-icon" aria-hidden="true">
@@ -109,7 +135,10 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="smh-card-body">
             <span class="smh-card-name">${escapeHtml(name)}</span>
-            <span class="smh-card-meta">${weeks} tuần học</span>
+            <span class="smh-card-meta">${subjectWeeks.length} tuần học</span>
+            <span class="smh-card-link-status ${linkedWeeks ? 'is-linked' : ''}">
+              ${linkedWeeks ? `${linkedWeeks}/${subjectWeeks.length} tuần đã có link` : 'Chưa có link bài thi'}
+            </span>
           </div>
           <div class="smh-card-actions">
             <button
@@ -250,16 +279,30 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!weeklyMap[subjectName] || !weeklyMap[subjectName][weekIdx]) return;
           const week = weeklyMap[subjectName][weekIdx];
           // Mặc định active = true; thiếu = inactive
-          week.active = !week.active;
+          if (week.quizCode) {
+            try {
+              const response = await fetch(`/api/quiz/${encodeURIComponent(week.quizCode)}/toggle/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCsrfToken() },
+                credentials: 'same-origin',
+              });
+              const result = await response.json();
+              if (!response.ok || !result.success) throw new Error(result.message || 'Không thể đổi trạng thái');
+              week.active = result.is_active;
+            } catch (error) {
+              if (window.errorToast) window.errorToast('Lỗi', error.message);
+              return;
+            }
+          } else {
+            week.active = !week.active;
+          }
           saveWeeklyMap(weeklyMap);
           listEl.innerHTML = renderWeekList(weeklyMap[subjectName]);
           renderAll();
-          if (window.successToast) {
-            window.successToast(
-              week.active ? 'Đã kích hoạt' : 'Đã tạm dừng',
-              week.active ? `${week.name} đang hoạt động` : `${week.name} đã tạm ngưng`
-            );
-          }
+          if (window.successToast) window.successToast(
+            week.active ? 'Đã kích hoạt' : 'Đã tạm dừng',
+            week.active ? `${week.name} đang hoạt động` : `${week.name} đã tạm ngưng`
+          );
         }
       });
     }, 0);
@@ -289,23 +332,33 @@ document.addEventListener('DOMContentLoaded', () => {
       const descHtml = desc
         ? `<p class="smh-modal-week-desc" title="${escapeHtml(desc)}">${escapeHtml(desc)}</p>`
         : `<p class="smh-modal-week-desc smh-modal-week-desc--empty">Chưa có mô tả nội dung</p>`;
+      const linkHtml = w.link
+        ? `<span class="smh-modal-week-link is-linked">Đã có link</span>`
+        : '<span class="smh-modal-week-link">Chưa có link</span>';
+      const editHtml = w.quizCode
+        ? `<a class="smh-modal-week-edit" href="/tao-de/?quiz=${encodeURIComponent(w.quizCode)}">Chỉnh sửa</a>`
+        : '<span class="smh-modal-week-edit is-disabled">Chỉnh sửa</span>';
       return `
         <li class="smh-modal-week-item ${active ? 'is-active' : 'is-inactive'}">
           <div class="smh-modal-week-row">
             <span class="smh-modal-week-num">${i + 1}</span>
             <span class="smh-modal-week-name">${escapeHtml(w.name)}</span>
-            <span class="smh-modal-week-status">${active ? 'Hoạt động' : 'Tạm ngưng'}</span>
-            <button
-              type="button"
-              class="smh-modal-week-toggle"
-              data-week-toggle="${i}"
-              aria-label="${active ? 'Tạm ngưng' : 'Kích hoạt'} ${escapeHtml(w.name)}"
-              title="${active ? 'Tạm ngưng tuần này' : 'Kích hoạt lại tuần này'}"
-            >
-              <span class="smh-toggle-track">
-                <span class="smh-toggle-thumb"></span>
-              </span>
-            </button>
+            ${linkHtml}
+            <span class="smh-modal-week-activity">
+              <span class="smh-modal-week-status">${active ? 'Hoạt động' : 'Tạm ngưng'}</span>
+              <button
+                type="button"
+                class="smh-modal-week-toggle"
+                data-week-toggle="${i}"
+                aria-label="${active ? 'Tạm ngưng' : 'Kích hoạt'} ${escapeHtml(w.name)}"
+                title="${active ? 'Tạm ngưng tuần này' : 'Kích hoạt lại tuần này'}"
+              >
+                <span class="smh-toggle-track">
+                  <span class="smh-toggle-thumb"></span>
+                </span>
+              </button>
+            </span>
+            ${editHtml}
             <button
               type="button"
               class="smh-modal-week-del"
@@ -499,6 +552,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch {
       // Ignore
     }
+  }
+
+  function getCsrfToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+      document.cookie.split('; ').find((row) => row.startsWith('csrftoken='))?.split('=')[1] || '';
   }
 });
 
