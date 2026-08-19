@@ -75,6 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let parseController = null;
   let questions = [];
   let editingQuizCode = new URLSearchParams(window.location.search).get('quiz');
+  let editingSubject = '';
+  let editingWeekIndex = null;
 
   // ── Storage helpers (đồng bộ với tao-mon-hoc.js) ──
   function loadSubjects() {
@@ -94,6 +96,38 @@ document.addEventListener('DOMContentLoaded', () => {
       return parsed && typeof parsed === 'object' ? parsed : {};
     } catch {
       return {};
+    }
+  }
+
+  async function syncExistingQuizLinks() {
+    try {
+      const response = await fetch('/api/quiz-links/', {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const weeklyMap = loadWeeklyMap();
+      (data.links || []).forEach((quiz) => {
+        const weeks = weeklyMap[quiz.subject] || [];
+        const week = weeks[Number(quiz.week_index)];
+        if (week) {
+          week.link = quiz.link;
+          week.quizCode = quiz.code;
+          week.active = quiz.is_active;
+        }
+      });
+      localStorage.setItem(storageWeeksKey, JSON.stringify(weeklyMap));
+      if (subjectSelect.value) {
+        const selectedWeekIndex = weekSelect.value;
+        updateWeeks();
+        if (selectedWeekIndex !== '' && Array.from(weekSelect.options).some((option) => option.value === selectedWeekIndex)) {
+          weekSelect.value = selectedWeekIndex;
+          updateParseButton();
+        }
+      }
+    } catch {
+      // Giữ dữ liệu local nếu API không truy cập được.
     }
   }
 
@@ -157,12 +191,12 @@ document.addEventListener('DOMContentLoaded', () => {
       opt.textContent = `${i + 1}. ${w.name}`;
       weekSelect.appendChild(opt);
     });
-    weekSelect.value = '0'; // mặc định chọn tuần đầu
+    weekSelect.value = '';
   }
 
   // ── File handling ──
   function updateParseButton() {
-    btnParse.disabled = !currentFile || !subjectSelect.value || weekSelect.disabled;
+    btnParse.disabled = !currentFile || !subjectSelect.value || weekSelect.disabled || !weekSelect.value;
   }
 
   function setFile(file) {
@@ -247,6 +281,46 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   weekSelect.addEventListener('change', () => {
     updateParseButton();
+
+    const weeks = loadWeeklyMap()[subjectSelect.value] || [];
+    const selectedWeek = weeks[Number(weekSelect.value)];
+    if (!selectedWeek?.quizCode) return;
+    if (editingQuizCode && selectedWeek.quizCode === editingQuizCode) return;
+
+    const weekName = selectedWeek.name || `Tuần ${Number(weekSelect.value) + 1}`;
+    const subjectName = subjectSelect.value;
+    const message = `Môn học "${subjectName}" - tuần "${weekName}" đã được tạo link. Bạn có muốn chỉnh sửa đề hiện tại không?`;
+    const openEditor = (confirmed) => {
+      if (confirmed) {
+        window.location.href = `/tao-de/?quiz=${encodeURIComponent(selectedWeek.quizCode)}`;
+      } else if (window.infoToast) {
+        window.infoToast(
+          'Đã từ chối chỉnh sửa',
+          `Bạn đã từ chối chỉnh sửa môn học "${subjectName}" - tuần "${weekName}"`,
+        );
+        if (editingSubject === subjectName && editingWeekIndex != null) {
+          weekSelect.value = String(editingWeekIndex);
+          updateParseButton();
+        }
+      }
+    };
+
+    if (window.confirmInfo) {
+      window.confirmInfo('Tuần học đã có đề', message, {
+        confirmLabel: 'Có, chỉnh sửa',
+        cancelLabel: 'Không',
+      }).then(openEditor);
+    } else if (window.showConfirm) {
+      window.showConfirm({
+        title: 'Tuần học đã có đề',
+        message,
+        confirmLabel: 'Có, chỉnh sửa',
+        cancelLabel: 'Không',
+        type: 'info',
+      }).then(openEditor);
+    } else {
+      openEditor(window.confirm(message));
+    }
   });
 
   // ── Parse ──
@@ -423,6 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const week = weeks[Number(weekIndex)];
             if (week) {
               week.link = data.link;
+              week.quizCode = data.code || editingQuizCode;
               localStorage.setItem('qhun22_subjects_weeks', JSON.stringify(weeklyMap));
             }
           } catch {
@@ -1539,12 +1614,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.subject && Array.from(subjectSelect.options).some((option) => option.value === data.subject)) {
         subjectSelect.value = data.subject;
         updateWeeks();
-        if (data.week_index != null) weekSelect.value = String(data.week_index);
+        if (data.week_index != null) {
+          editingSubject = data.subject;
+          editingWeekIndex = Number(data.week_index);
+          weekSelect.value = String(data.week_index);
+          updateParseButton();
+        }
       }
       detectDuplicates();
       renderQuestions(questions, []);
       if (btnShare) btnShare.innerHTML = 'Lưu thay đổi';
-      if (window.infoToast) window.infoToast('Đang chỉnh sửa', `Đề ${data.title || editingQuizCode}`);
+      const weeks = loadWeeklyMap()[data.subject] || [];
+      const weekName = data.week_index != null
+        ? (weeks[Number(data.week_index)]?.name || `Tuần ${Number(data.week_index) + 1}`)
+        : 'tuần chưa xác định';
+      if (window.infoToast) {
+        window.infoToast(
+          'Đang chỉnh sửa',
+          `Bạn đang chỉnh sửa môn học "${data.subject || 'chưa xác định'}" - tuần "${weekName}"`,
+        );
+      }
     } catch (error) {
       editingQuizCode = null;
       if (window.errorToast) window.errorToast('Lỗi', error.message);
@@ -1776,4 +1865,5 @@ document.addEventListener('DOMContentLoaded', () => {
   populateSubjects();
   renderQuestions([], []);
   loadExistingQuiz();
+  syncExistingQuizLinks();
 });
