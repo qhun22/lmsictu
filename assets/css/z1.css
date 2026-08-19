@@ -64,21 +64,20 @@ html, body {
 }
 
 html {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    overflow-y: scroll;
+    scrollbar-width: thin;
+    scrollbar-color: #a7b0bd transparent;
+    overflow-y: auto;
 }
 
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-    display: none;
+    width: 8px;
+    height: 8px;
 }
 
 body {
     overflow-x: hidden;
-    overflow-y: scroll;
+    overflow-y: auto;
 }
 
 a {

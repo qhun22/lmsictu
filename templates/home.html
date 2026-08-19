@@ -21,7 +21,7 @@
     />
     <link
       rel="stylesheet"
-      href="{% static 'assets/css/navbar.css' %}?v=20260815-1"
+      href="{% static 'assets/css/navbar.css' %}?v=20260820-2"
     />
     <link
       rel="stylesheet"
@@ -37,17 +37,47 @@
     />
     <link
       rel="stylesheet"
-      href="{% static 'assets/css/home.css' %}?v=20260818-4"
+      href="{% static 'assets/css/home.css' %}?v=20260819-9"
     />
   </head>
   <body>
     <div class="page-wrapper">
       {% include 'includes/navbar.html' %}
+      <div class="home-notice-overlay" id="home-notice-overlay" hidden></div>
+      <aside
+        class="home-notice"
+        id="home-notice"
+        hidden
+        aria-label="Thông báo hướng dẫn"
+      >
+        <div class="home-notice__header">
+          <strong class="home-notice__title">Thông báo mới</strong>
+        </div>
+        <p class="home-notice__message">
+          Có làm mới có ăn, tự thao tác tạo đề, không hiểu xem hướng dẫn nhé!
+        </p>
+        <div class="home-notice__actions">
+          <button
+            class="home-notice__btn home-notice__btn--primary"
+            id="home-notice-ok"
+            type="button"
+          >
+            Đóng
+          </button>
+          <button
+            class="home-notice__btn home-notice__btn--secondary"
+            id="home-notice-snooze"
+            type="button"
+          >
+            Đóng 1 giờ
+          </button>
+        </div>
+      </aside>
       <main class="main-wrapper">
         <div class="padding-global">
           <div class="container-large">
             <section class="learning-section" aria-label="Quản lý học tập">
-              <h2 class="learning-title">Quản Lý Học Tập</h2>
+              <h2 class="learning-title">SETUP</h2>
 
               <div class="learning-grid">
                 <a
@@ -75,7 +105,11 @@
                   <h3 class="learning-card-title">Tạo Môn Học</h3>
                 </a>
 
-                <a href="{% url 'tao_de' %}" class="learning-card" aria-label="Vào phần Tạo Đề">
+                <a
+                  href="{% url 'tao_de' %}"
+                  class="learning-card"
+                  aria-label="Vào phần Tạo Đề"
+                >
                   <span class="learning-icon-wrap">
                     <svg
                       class="learning-icon"
@@ -120,6 +154,6 @@
     <script src="{% static 'assets/js/toast.js' %}?v=20260815-1"></script>
     <script src="{% static 'assets/js/z1.js' %}?v=20260815-1"></script>
     <script src="{% static 'assets/js/z2.js' %}?v=20260815-1"></script>
-    <script src="{% static 'assets/js/home.js' %}?v=20260816-3"></script>
+    <script src="{% static 'assets/js/home.js' %}?v=20260819-9"></script>
   </body>
 </html>

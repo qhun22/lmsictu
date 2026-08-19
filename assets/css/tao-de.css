@@ -688,8 +688,9 @@
 }
 
 .tq-settings-popover {
-  width: 70vw;
-  max-width: 1100px;
+  width: min(70vw, 1200px);
+  min-width: min(760px, calc(100vw - 48px));
+  max-width: 1200px;
   max-height: 90vh;
   background: #fff;
   border-radius: 18px;
@@ -753,8 +754,9 @@
 
 .tq-settings-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 22px;
+  padding: 26px 30px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -906,6 +908,89 @@
   box-shadow: 0 0 0 3px rgba(45, 138, 247, 0.15);
 }
 
+.tq-edit-drag-panel {
+  padding: 18px;
+  border: 1px solid rgba(45, 138, 247, 0.2);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #f7faff, #eef3ff);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.tq-edit-drag-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tq-edit-drag-panel__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 11px;
+  background: rgba(45, 138, 247, 0.12);
+  color: var(--s-accent);
+}
+
+.tq-edit-drag-panel__header strong {
+  display: block;
+  color: var(--s-text);
+  font-size: 0.95rem;
+}
+
+.tq-edit-drag-panel__header p {
+  margin: 3px 0 0;
+  color: var(--s-text-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.tq-edit-drag-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.tq-edit-drag-field {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(45, 138, 247, 0.14);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.tq-edit-drag-field .tq-edit-label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.tq-edit-drag-textarea {
+  min-height: 128px;
+  background: #fff;
+  resize: vertical;
+}
+
+.tq-edit-drag-field__hint {
+  display: block;
+  margin-top: 7px;
+  color: var(--s-text-muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.tq-edit-drag-tip {
+  margin-bottom: 0;
+}
+
+@media (max-width: 760px) {
+  .tq-edit-drag-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tq-edit-hint {
   display: flex;
   align-items: center;
@@ -946,27 +1031,46 @@
 
 .tq-edit-type--seven {
   grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  background: #f1f5ff;
+  border-color: rgba(45, 138, 247, 0.16);
 }
 
 .tq-edit-type--seven .tq-edit-type-btn {
   flex-direction: column;
-  gap: 4px;
+  gap: 7px;
   min-width: 0;
-  padding: 10px 2px;
-  font-size: 0.7rem;
-  white-space: nowrap;
+  min-height: 76px;
+  padding: 11px 6px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  white-space: normal;
+  text-align: center;
 }
 
 .tq-edit-type--seven .tq-edit-type-btn .tq-icon {
-  font-size: 1.1rem;
+  width: 20px;
+  height: 20px;
+  font-size: 1.2rem;
+}
+
+.tq-edit-type--seven .tq-edit-type-btn.is-active {
+  color: var(--s-accent-hover);
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(45, 138, 247, 0.16);
 }
 
 @media (max-width: 640px) {
   .tq-settings-popover {
     width: min(100%, 640px);
+    min-width: 0;
   }
 
   .tq-edit-type--six {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .tq-edit-type--seven {
     grid-template-columns: repeat(3, 1fr);
   }
 }
@@ -976,7 +1080,7 @@
     grid-template-columns: repeat(2, 1fr);
   }
   .tq-edit-type--seven {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

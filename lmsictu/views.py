@@ -124,6 +124,7 @@ def login_view(request):
         if user is not None:
             login(request, user)
             messages.success(request, 'Đăng nhập thành công.')
+            request.session['just_logged_in'] = True  # đánh dấu vừa đăng nhập
             next_url = request.POST.get('next') or request.GET.get('next') or 'home'
             target = _resolve_redirect_target(next_url)
             if _is_ajax(request):
@@ -249,9 +250,10 @@ def logout_view(request):
 # ────────────────────────────────────────────────────────────────
 
 import secrets
-from .models import Quiz, Attempt
+from .models import Quiz, Attempt, Subject, Week
 
 
+@login_required
 @require_POST
 @csrf_protect
 def api_save_quiz(request):
@@ -267,6 +269,19 @@ def api_save_quiz(request):
         if not questions:
             return JsonResponse({'success': False, 'message': 'Không có câu hỏi nào.'}, status=400)
 
+        if subject and week_index is not None:
+            existing = Quiz.objects.filter(
+                creator=request.user,
+                subject=subject,
+                week_index=week_index,
+            ).first()
+            if existing:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Tuần học này đã có đề. Hãy chọn chỉnh sửa đề hiện tại.',
+                    'code': existing.code,
+                }, status=409)
+
         # Tạo code ngẫu nhiên 8 ký tự
         code = secrets.token_hex(4)  # 8 ký tự hex
 
@@ -279,6 +294,16 @@ def api_save_quiz(request):
             creator=request.user if request.user.is_authenticated else None,
             questions=questions,
         )
+
+        if subject and week_index is not None:
+            week = Week.objects.filter(
+                subject__name=subject,
+                subject__creator=request.user,
+            ).order_by('id')[week_index:week_index + 1]
+            if week:
+                week[0].link = request.build_absolute_uri(f'/e/{code}/')
+                week[0].quiz_code = code
+                week[0].save(update_fields=['link', 'quiz_code'])
 
         # Link đầy đủ
         link = request.build_absolute_uri(f'/e/{code}/')
@@ -297,7 +322,7 @@ def api_save_quiz(request):
 @login_required
 def api_quiz_links(request):
     """Trả về các link đề đã gắn với môn và tuần học."""
-    quizzes = Quiz.objects.exclude(week_index__isnull=True).values(
+    quizzes = Quiz.objects.filter(creator=request.user).exclude(week_index__isnull=True).values(
         'subject', 'week_index', 'code', 'title', 'is_active',
     )
     return JsonResponse({
@@ -321,18 +346,38 @@ def api_quiz_links(request):
 def api_update_quiz(request, code):
     """Cập nhật câu hỏi và trạng thái đề từ trang quản lý."""
     try:
-        quiz = Quiz.objects.get(code=code)
+        quiz = Quiz.objects.get(code=code, creator=request.user)
     except Quiz.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Không tìm thấy đề.'}, status=404)
-    if quiz.creator_id and quiz.creator_id != request.user.id:
-        return JsonResponse({'success': False, 'message': 'Bạn không có quyền sửa đề này.'}, status=403)
     try:
         data = json.loads(request.body)
+        update_fields = []
         if 'questions' in data:
             quiz.questions = data['questions']
+            update_fields.append('questions')
         if 'is_active' in data:
             quiz.is_active = bool(data['is_active'])
-        quiz.save(update_fields=['questions', 'is_active'])
+            update_fields.append('is_active')
+        if 'subject' in data:
+            quiz.subject = str(data['subject']).strip()
+            update_fields.append('subject')
+        if 'week_index' in data:
+            quiz.week_index = int(data['week_index']) if str(data['week_index']).strip() != '' else None
+            update_fields.append('week_index')
+        if 'title' in data:
+            quiz.title = str(data['title']).strip()
+            update_fields.append('title')
+        if update_fields:
+            quiz.save(update_fields=update_fields)
+        if quiz.subject and quiz.week_index is not None:
+            week = Week.objects.filter(
+                subject__name=quiz.subject,
+                subject__creator=request.user,
+            ).order_by('id')[quiz.week_index:quiz.week_index + 1]
+            if week:
+                week[0].link = request.build_absolute_uri(f'/e/{quiz.code}/')
+                week[0].quiz_code = quiz.code
+                week[0].save(update_fields=['link', 'quiz_code'])
         return JsonResponse({'success': True})
     except (json.JSONDecodeError, TypeError):
         return JsonResponse({'success': False, 'message': 'Dữ liệu không hợp lệ.'}, status=400)
@@ -341,11 +386,9 @@ def api_update_quiz(request, code):
 @login_required
 def api_quiz_detail(request, code):
     try:
-        quiz = Quiz.objects.get(code=code)
+        quiz = Quiz.objects.get(code=code, creator=request.user)
     except Quiz.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Không tìm thấy đề.'}, status=404)
-    if quiz.creator_id and quiz.creator_id != request.user.id:
-        return JsonResponse({'success': False, 'message': 'Bạn không có quyền xem đề này.'}, status=403)
     return JsonResponse({
         'success': True,
         'code': quiz.code,
@@ -362,11 +405,9 @@ def api_quiz_detail(request, code):
 @csrf_protect
 def api_toggle_quiz(request, code):
     try:
-        quiz = Quiz.objects.get(code=code)
+        quiz = Quiz.objects.get(code=code, creator=request.user)
     except Quiz.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Không tìm thấy đề.'}, status=404)
-    if quiz.creator_id and quiz.creator_id != request.user.id:
-        return JsonResponse({'success': False, 'message': 'Bạn không có quyền đổi trạng thái đề này.'}, status=403)
     quiz.is_active = not quiz.is_active
     quiz.save(update_fields=['is_active'])
     return JsonResponse({'success': True, 'is_active': quiz.is_active})
@@ -512,3 +553,145 @@ def api_submit_exam(request, code):
         'total': total,
         'results': results,
     })
+
+
+# ────────────────────────────────────────────────────────────────
+#  SUBJECT & WEEK VIEWS (Database-backed)
+# ────────────────────────────────────────────────────────────────
+
+@login_required
+def api_subjects(request):
+    """Lấy danh sách môn học của user hiện tại."""
+    subjects = Subject.objects.filter(creator=request.user).values('id', 'name', 'created_at')
+    return JsonResponse({'subjects': list(subjects)})
+
+
+@login_required
+@require_POST
+@csrf_protect
+def api_subject_create(request):
+    """Tạo Môn Học Mới."""
+    try:
+        data = json.loads(request.body)
+        name = data.get('name', '').strip()
+
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Tên môn học không được trống.'}, status=400)
+
+        if Subject.objects.filter(name__iexact=name, creator=request.user).exists():
+            return JsonResponse({'success': False, 'message': 'Môn học đã tồn tại.'}, status=400)
+
+        subject = Subject.objects.create(name=name, creator=request.user)
+        return JsonResponse({'success': True, 'subject': {'id': subject.id, 'name': subject.name}})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Dữ liệu không hợp lệ.'}, status=400)
+
+
+@login_required
+@require_POST
+@csrf_protect
+def api_subject_delete(request, subject_id):
+    """Xóa môn học."""
+    try:
+        subject = Subject.objects.get(id=subject_id, creator=request.user)
+        subject.delete()
+        return JsonResponse({'success': True})
+    except Subject.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy môn học.'}, status=404)
+
+
+@login_required
+@require_POST
+@csrf_protect
+def api_subject_rename(request, subject_id):
+    """Đổi tên môn học."""
+    try:
+        subject = Subject.objects.get(id=subject_id, creator=request.user)
+        data = json.loads(request.body)
+        new_name = data.get('name', '').strip()
+
+        if not new_name:
+            return JsonResponse({'success': False, 'message': 'Tên môn học không được trống.'}, status=400)
+
+        if Subject.objects.filter(name__iexact=new_name, creator=request.user).exclude(id=subject_id).exists():
+            return JsonResponse({'success': False, 'message': 'Tên môn học đã tồn tại.'}, status=400)
+
+        subject.name = new_name
+        subject.save()
+        return JsonResponse({'success': True, 'name': subject.name})
+    except Subject.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy môn học.'}, status=404)
+
+
+@login_required
+def api_weeks(request, subject_id):
+    """Lấy danh sách tuần của một môn học."""
+    try:
+        subject = Subject.objects.get(id=subject_id, creator=request.user)
+        weeks = subject.weeks.values('id', 'name', 'topics', 'link', 'quiz_code', 'active')
+        return JsonResponse({'weeks': list(weeks)})
+    except Subject.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy môn học.'}, status=404)
+
+
+@login_required
+@require_POST
+@csrf_protect
+def api_week_create(request, subject_id):
+    """Tạo tuần học mới."""
+    try:
+        subject = Subject.objects.get(id=subject_id, creator=request.user)
+        data = json.loads(request.body)
+        name = data.get('name', '').strip()
+        topics = data.get('topics', [])
+        link = data.get('link', '').strip()
+
+        if not name:
+            return JsonResponse({'success': False, 'message': 'Tên tuần không được trống.'}, status=400)
+
+        week = Week.objects.create(subject=subject, name=name, topics=topics, link=link)
+        return JsonResponse({'success': True, 'week': {
+            'id': week.id,
+            'name': week.name,
+            'topics': week.topics,
+            'link': week.link,
+            'quiz_code': week.quiz_code,
+            'active': week.active,
+        }})
+    except Subject.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy môn học.'}, status=404)
+
+
+@login_required
+@require_POST
+@csrf_protect
+def api_week_update(request, week_id):
+    """Cập nhật tuần học."""
+    try:
+        week = Week.objects.get(id=week_id, subject__creator=request.user)
+        data = json.loads(request.body)
+
+        if 'name' in data:
+            week.name = data['name'].strip()
+        if 'topics' in data:
+            week.topics = data['topics']
+        if 'link' in data:
+            week.link = data['link'].strip()
+
+        week.save()
+        return JsonResponse({'success': True})
+    except Week.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy tuần học.'}, status=404)
+
+
+@login_required
+@require_POST
+@csrf_protect
+def api_week_delete(request, week_id):
+    """Xóa tuần học."""
+    try:
+        week = Week.objects.get(id=week_id, subject__creator=request.user)
+        week.delete()
+        return JsonResponse({'success': True})
+    except Week.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy tuần học.'}, status=404)

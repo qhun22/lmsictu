@@ -9,6 +9,135 @@
   --font-signika: 'Signika', sans-serif;
 }
 
+.home-notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.home-notice-overlay[hidden] {
+  display: block;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.home-notice-overlay.is-visible {
+  opacity: 1;
+}
+
+.home-notice {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 1000;
+  width: min(620px, calc(100vw - 32px));
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 30px 80px rgba(25, 42, 66, 0.28);
+  color: var(--home-text);
+  opacity: 0;
+  transform: translate(-50%, calc(-50% - 12px));
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  overflow: hidden;
+}
+
+.home-notice[hidden] {
+  display: none;
+}
+
+.home-notice.is-visible {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+
+.home-notice__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 26px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.home-notice__title {
+  color: #333;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.home-notice__close {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  background: transparent;
+  color: #999;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.home-notice__close:hover {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.home-notice__message {
+  padding: 28px 26px;
+  margin: 0;
+  color: #444;
+  font-size: 1.1rem;
+  line-height: 1.7;
+}
+
+.home-notice__actions {
+  display: flex;
+  gap: 14px;
+  padding: 20px 26px;
+  border-top: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.home-notice__btn {
+  flex: 1;
+  padding: 14px 20px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.home-notice__btn--primary {
+  background: var(--home-blue);
+  color: #fff;
+}
+
+.home-notice__btn--primary:hover {
+  background: #1a7ae0;
+}
+
+.home-notice__btn--secondary {
+  background: #e8e8e8;
+  color: #555;
+}
+
+.home-notice__btn--secondary:hover {
+  background: #ddd;
+}
+
+@media (max-width: 680px) {
+  .home-notice {
+    padding: 0;
+  }
+}
+
 /* ── Quản lý học tập: dùng Signika ── */
 .learning-section,
 .learning-section * {

@@ -1,7 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const storageKey = 'qhun22_subjects';
-  const storageWeeklyKey = 'qhun22_subjects_weeks';
-
   const form = document.getElementById('smh-form');
   const input = document.getElementById('smh-input');
   const list = document.getElementById('smh-list');
@@ -10,11 +7,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (!form || !input || !list || !emptyState) return;
 
-  const subjects = loadSubjects();
-  const weeklyMap = loadWeeklyMap(); // { subjectName: [ {name, topics[]}, ... ] }
+  const subjects = [];
+  const weeklyMap = {}; // { subjectName: [ {name, topics[], _id}, ... ] }
+  const subjectIds = new Map();
 
-  renderAll();
-  syncQuizLinks();
+  loadDatabaseData().then(() => {
+    renderAll();
+    syncQuizLinks();
+  });
+
+  async function loadDatabaseData() {
+    try {
+      const response = await fetch('/api/subjects/', { credentials: 'same-origin' });
+      if (!response.ok) throw new Error('Không thể tải môn học');
+      const data = await response.json();
+      for (const subject of data.subjects || []) {
+        subjects.push(subject.name);
+        subjectIds.set(subject.name, subject.id);
+        const weeksResponse = await fetch(`/api/subject/${subject.id}/weeks/`, { credentials: 'same-origin' });
+        const weeksData = weeksResponse.ok ? await weeksResponse.json() : { weeks: [] };
+        weeklyMap[subject.name] = (weeksData.weeks || []).map((week) => ({
+          ...week,
+          _id: week.id,
+          quizCode: week.quiz_code || null,
+          active: week.active !== false,
+        }));
+      }
+
+    } catch (error) {
+      if (window.errorToast) window.errorToast('Lỗi tải dữ liệu', error.message);
+    }
+  }
 
   async function syncQuizLinks() {
     try {
@@ -33,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
           week.active = quiz.is_active;
         }
       });
-      saveWeeklyMap(weeklyMap);
       renderAll();
     } catch {
       // Giữ dữ liệu local hiện có nếu API không truy cập được.
@@ -41,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ── Submit form: thêm môn học mới ──
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = input.value.trim();
     if (!name) {
@@ -57,17 +79,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    subjects.push(name);
-    saveSubjects(subjects);
-    if (!weeklyMap[name]) {
-      weeklyMap[name] = [];
-      saveWeeklyMap(weeklyMap);
+    try {
+      const response = await fetch('/api/subject/create/', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+        credentials: 'same-origin', body: JSON.stringify({ name }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || 'Không thể thêm môn học');
+      subjects.push(data.subject.name);
+      subjectIds.set(data.subject.name, data.subject.id);
+      weeklyMap[data.subject.name] = [];
+      renderAll();
+      input.value = '';
+      input.focus();
+      if (window.successToast) window.successToast('Thành công', `Đã thêm môn "${name}"`);
+    } catch (error) {
+      if (window.errorToast) window.errorToast('Lỗi', error.message);
     }
-    renderAll();
-    input.value = '';
-    input.focus();
-
-    if (window.successToast) window.successToast('Thành công', `Đã thêm môn "${name}"`);
   });
 
   // ── Delegated click cho list ──
@@ -88,10 +116,20 @@ document.addEventListener('DOMContentLoaded', () => {
         { confirmLabel: 'Xóa', detail: 'Hành động này không thể hoàn tác.' }
       );
       if (!ok) return;
+      const subjectId = subjectIds.get(name);
+      if (subjectId) {
+        const response = await fetch(`/api/subject/${subjectId}/`, {
+          method: 'POST', headers: { 'X-CSRFToken': getCsrfToken() }, credentials: 'same-origin',
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          if (window.errorToast) window.errorToast('Lỗi', data.message || 'Không thể xóa môn học');
+          return;
+        }
+      }
       subjects.splice(idx, 1);
       delete weeklyMap[name];
-      saveSubjects(subjects);
-      saveWeeklyMap(weeklyMap);
+      subjectIds.delete(name);
       renderAll();
       if (window.successToast) window.successToast('Đã xóa', `Đã xóa môn "${name}"`);
     } else if (btnAdd) {
@@ -137,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="smh-card-name">${escapeHtml(name)}</span>
             <span class="smh-card-meta">${subjectWeeks.length} tuần học</span>
             <span class="smh-card-link-status ${linkedWeeks ? 'is-linked' : ''}">
-              ${linkedWeeks ? `${linkedWeeks}/${subjectWeeks.length} tuần đã có link` : 'Chưa có link bài thi'}
+              ${linkedWeeks ? `${linkedWeeks}/${subjectWeeks.length} tuần đã có link` : 'Chưa có liên bài làm.'}
             </span>
           </div>
           <div class="smh-card-actions">
@@ -198,10 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const weeks = weeklyMap[subjectName] || [];
     const modal = buildModal({
       modalClass: 'smh-modal--settings',
-      title: `Cài đặt: ${escapeHtml(subjectName)}`,
+      title: `Cài đặt môn học: ${escapeHtml(subjectName)}`,
       bodyHTML: `
         <div class="smh-modal-section">
-          <label class="smh-modal-label">Đổi tên môn học</label>
+          <label class="smh-modal-label">Chạm bên dưới để đổi tên môn học!</label>
           <input
             type="text"
             id="smh-rename-input"
@@ -212,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
 
         <div class="smh-modal-section">
-          <span class="smh-modal-label">Danh sách tuần học (${weeks.length})</span>
+          <span class="smh-modal-label">Danh sách (${weeks.length})</span>
           <ul class="smh-modal-week-list" id="smh-modal-week-list">
             ${renderWeekList(weeks)}
           </ul>
@@ -235,13 +273,32 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.warningToast) window.warningToast('Trùng tên', `"${newName}" đã tồn tại`);
             return false;
           }
-          subjects[idx] = newName;
-          weeklyMap[newName] = weeklyMap[subjectName] || [];
-          delete weeklyMap[subjectName];
-          saveSubjects(subjects);
-          saveWeeklyMap(weeklyMap);
-          renderAll();
-          if (window.successToast) window.successToast('Đã lưu', `Đổi tên thành "${newName}"`);
+          const subjectId = subjectIds.get(subjectName);
+          if (subjectId) {
+            fetch(`/api/subject/${subjectId}/rename/`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+              credentials: 'same-origin',
+              body: JSON.stringify({ name: newName }),
+            }).then(async (response) => {
+              const data = await response.json();
+              if (!response.ok || !data.success) throw new Error(data.message || 'Không thể đổi tên môn học');
+              subjects[idx] = newName;
+              subjectIds.delete(subjectName);
+              subjectIds.set(newName, subjectId);
+              weeklyMap[newName] = weeklyMap[subjectName] || [];
+              delete weeklyMap[subjectName];
+              renderAll();
+              if (window.successToast) window.successToast('Đã lưu', `Đổi tên thành "${newName}"`);
+            }).catch((error) => {
+              if (window.errorToast) window.errorToast('Lỗi', error.message);
+            });
+          } else {
+            subjects[idx] = newName;
+            weeklyMap[newName] = weeklyMap[subjectName] || [];
+            delete weeklyMap[subjectName];
+            renderAll();
+          }
         } else {
           if (window.successToast) window.successToast('Đã lưu', 'Cài đặt được cập nhật');
         }
@@ -266,8 +323,18 @@ document.addEventListener('DOMContentLoaded', () => {
             { confirmLabel: 'Xóa' }
           );
           if (!ok) return;
+          const week = weeklyMap[subjectName][weekIdx];
+          if (week._id) {
+            const response = await fetch(`/api/week/${week._id}/delete/`, {
+              method: 'POST', headers: { 'X-CSRFToken': getCsrfToken() }, credentials: 'same-origin',
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success) {
+              if (window.errorToast) window.errorToast('Lỗi', data.message || 'Không thể xóa tuần học');
+              return;
+            }
+          }
           weeklyMap[subjectName].splice(weekIdx, 1);
-          saveWeeklyMap(weeklyMap);
           listEl.innerHTML = renderWeekList(weeklyMap[subjectName]);
           renderAll();
           if (window.successToast) window.successToast('Đã xóa', 'Tuần học');
@@ -296,7 +363,6 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             week.active = !week.active;
           }
-          saveWeeklyMap(weeklyMap);
           listEl.innerHTML = renderWeekList(weeklyMap[subjectName]);
           renderAll();
           if (window.successToast) window.successToast(
@@ -324,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderWeekList(weeks) {
     if (!weeks.length) {
-      return '<li class="smh-modal-week-empty">Chưa có tuần học nào</li>';
+      return '<li class="smh-modal-week-empty">Bạn chưa thêm danh sách nào, mau chóng thêm ngay nhé!</li>';
     }
     return weeks.map((w, i) => {
       const active = w.active !== false; // mặc định active
@@ -334,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
         : `<p class="smh-modal-week-desc smh-modal-week-desc--empty">Chưa có mô tả nội dung</p>`;
       const linkHtml = w.link
         ? `<span class="smh-modal-week-link is-linked">Đã có link</span>`
-        : '<span class="smh-modal-week-link">Chưa có link</span>';
+        : '<span class="smh-modal-week-link">Chưa có liên kết</span>';
       const editHtml = w.quizCode
         ? `<a class="smh-modal-week-edit" href="/tao-de/?quiz=${encodeURIComponent(w.quizCode)}">Chỉnh sửa</a>`
         : '<span class="smh-modal-week-edit is-disabled">Chỉnh sửa</span>';
@@ -389,10 +455,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextNumber = weeks.length + 1;
 
     const modal = buildModal({
-      title: `Thêm tuần cho "${escapeHtml(subjectName)}"`,
+      title: `Thêm Tuần Học cho "${escapeHtml(subjectName)}"`,
       bodyHTML: `
         <div class="smh-modal-section">
-          <label class="smh-modal-label" for="smh-week-name-input">Tên tuần học</label>
+          <label class="smh-modal-label" for="smh-week-name-input">Nhập Tên Tuần Học</label>
           <input
             type="text"
             id="smh-week-name-input"
@@ -403,7 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
           />
         </div>
         <div class="smh-modal-section">
-          <span class="smh-modal-label">Mô tả nội dung (Có thể không cần thiết)</span>
+          <span class="smh-modal-label">Mô tả nội dung</span>
           <textarea
             id="smh-week-desc"
             class="smh-modal-input smh-modal-textarea"
@@ -421,13 +487,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const descInput = document.getElementById('smh-week-desc');
         const name = (nameInput.value.trim() || `Tuần ${nextNumber}`);
         const desc = descInput.value.trim();
-        if (!weeklyMap[subjectName]) weeklyMap[subjectName] = [];
-        const newWeek = { name, topics: [], active: true };
-        if (desc) newWeek.description = desc;
-        weeklyMap[subjectName].push(newWeek);
-        saveWeeklyMap(weeklyMap);
-        renderAll();
-        if (window.successToast) window.successToast('Đã thêm', name);
+        const subjectId = subjectIds.get(subjectName);
+        if (!subjectId) {
+          if (window.errorToast) window.errorToast('Lỗi', 'Không tìm thấy môn học trong cơ sở dữ liệu');
+          return false;
+        }
+        fetch(`/api/subject/${subjectId}/week/create/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+          credentials: 'same-origin',
+          body: JSON.stringify({ name, topics: desc ? [desc] : [] }),
+        }).then(async (response) => {
+          const data = await response.json();
+          if (!response.ok || !data.success) throw new Error(data.message || 'Không thể thêm tuần học');
+          const newWeek = { ...data.week, _id: data.week.id, active: true };
+          if (!weeklyMap[subjectName]) weeklyMap[subjectName] = [];
+          weeklyMap[subjectName].push(newWeek);
+          renderAll();
+          if (window.successToast) window.successToast('Đã thêm', name);
+        }).catch((error) => {
+          if (window.errorToast) window.errorToast('Lỗi', error.message);
+        });
         modal.close();
       },
     });
@@ -515,43 +595,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-  }
-
-  // ── Storage helpers ──
-  function loadSubjects() {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveSubjects(items) {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(items));
-    } catch {
-      // Ignore
-    }
-  }
-
-  function loadWeeklyMap() {
-    try {
-      const raw = localStorage.getItem(storageWeeklyKey);
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch {
-      return {};
-    }
-  }
-
-  function saveWeeklyMap(map) {
-    try {
-      localStorage.setItem(storageWeeklyKey, JSON.stringify(map));
-    } catch {
-      // Ignore
-    }
   }
 
   function getCsrfToken() {

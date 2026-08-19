@@ -1,8 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   'use strict';
 
-  const storageSubjectsKey = 'qhun22_subjects';
-  const storageWeeksKey = 'qhun22_subjects_weeks';
   const csrfToken = document
     .querySelector('meta[name="csrf-token"]')
     ?.getAttribute('content') || '';
@@ -74,28 +72,40 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentFile = null;
   let parseController = null;
   let questions = [];
+  let databaseSubjects = [];
+  let databaseWeeks = {};
   let editingQuizCode = new URLSearchParams(window.location.search).get('quiz');
   let editingSubject = '';
   let editingWeekIndex = null;
 
   // ── Storage helpers (đồng bộ với tao-mon-hoc.js) ──
   function loadSubjects() {
-    try {
-      const raw = localStorage.getItem(storageSubjectsKey);
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
+    return databaseSubjects;
   }
 
   function loadWeeklyMap() {
+    return databaseWeeks;
+  }
+
+  async function loadDatabaseSubjects() {
     try {
-      const raw = localStorage.getItem(storageWeeksKey);
-      const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' ? parsed : {};
+      const response = await fetch('/api/subjects/', { credentials: 'same-origin' });
+      if (!response.ok) return;
+      const data = await response.json();
+      const weeklyMap = {};
+      for (const subject of data.subjects || []) {
+        const weeksResponse = await fetch(`/api/subject/${subject.id}/weeks/`, { credentials: 'same-origin' });
+        const weeksData = weeksResponse.ok ? await weeksResponse.json() : { weeks: [] };
+        weeklyMap[subject.name] = (weeksData.weeks || []).map((week) => ({
+          ...week,
+          quizCode: week.quiz_code || null,
+          active: week.active !== false,
+        }));
+      }
+      databaseSubjects = (data.subjects || []).map((subject) => subject.name);
+      databaseWeeks = weeklyMap;
     } catch {
-      return {};
+      // Dùng cache local nếu API không truy cập được.
     }
   }
 
@@ -117,7 +127,6 @@ document.addEventListener('DOMContentLoaded', () => {
           week.active = quiz.is_active;
         }
       });
-      localStorage.setItem(storageWeeksKey, JSON.stringify(weeklyMap));
       if (subjectSelect.value) {
         const selectedWeekIndex = weekSelect.value;
         updateWeeks();
@@ -145,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
       opt.disabled = true;
       subjectSelect.appendChild(opt);
       weekSelect.disabled = true;
-      weekSelect.innerHTML = '<option value="">-- Chọn tuần học --</option>';
+      weekSelect.innerHTML = '<option value="">-- Chọn Tuần Học --</option>';
       weekHint.hidden = false;
       return;
     }
@@ -168,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const weeklyMap = loadWeeklyMap();
     const weeks = subject ? weeklyMap[subject] || [] : [];
 
-    weekSelect.innerHTML = '<option value="">-- Chọn tuần học --</option>';
+    weekSelect.innerHTML = '<option value="">-- Chọn Tuần Học --</option>';
     if (!subject) {
       weekSelect.disabled = true;
       weekHint.hidden = false;
@@ -179,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!weeks.length) {
       weekSelect.disabled = true;
       weekHint.hidden = false;
-      weekHint.innerHTML = `Môn "${subject}" chưa có tuần học. Vào <a href="/tao-mon-hoc/">Tạo môn học</a> để thêm.`;
+      weekHint.innerHTML = `Môn "${subject}" chưa có tuần học. Vào <a href="/tao-mon-hoc/">Tạo Môn Học</a> để thêm.`;
       return;
     }
 
@@ -492,13 +501,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.success) {
         if (subjectName && weekIndex !== '') {
           try {
-            const weeklyMap = JSON.parse(localStorage.getItem('qhun22_subjects_weeks') || '{}');
+            const weeklyMap = loadWeeklyMap();
             const weeks = weeklyMap[subjectName] || [];
             const week = weeks[Number(weekIndex)];
             if (week) {
               week.link = data.link;
               week.quizCode = data.code || editingQuizCode;
-              localStorage.setItem('qhun22_subjects_weeks', JSON.stringify(weeklyMap));
             }
           } catch {
             // Không chặn việc tạo link nếu localStorage không khả dụng.
@@ -687,24 +695,39 @@ document.addEventListener('DOMContentLoaded', () => {
       const answers = (q.drag_answers || []).join('\n');
       const sentences = (q.drag_sentences || []).map((s) => s.text).join('\n');
       return `
-        <div class="tq-edit-row">
-          <label class="tq-edit-label" for="tq-edit-drag-sentences">Câu có ___ (mỗi dòng 1 câu)</label>
-          <textarea
-            id="tq-edit-drag-sentences"
-            class="tq-edit-textarea tq-edit-textarea--sm"
-            placeholder="VD: Đảng Cộng sản là ___ quan trọng nhất."
-          >${escapeHtml(sentences)}</textarea>
-        </div>
-        <div class="tq-edit-row">
-          <label class="tq-edit-label" for="tq-edit-drag-answers">Đáp án kéo thả (mỗi dòng 1 đáp án)</label>
-          <textarea
-            id="tq-edit-drag-answers"
-            class="tq-edit-textarea tq-edit-textarea--sm"
-            placeholder="VD: nhân tố chủ quan"
-          >${escapeHtml(answers)}</textarea>
-          <p class="tq-edit-hint">
+        <div class="tq-edit-drag-panel">
+          <div class="tq-edit-drag-panel__header">
+            <span class="tq-edit-drag-panel__icon"><i data-lucide="grip" class="tq-icon"></i></span>
+            <div>
+              <strong>Nội dung kéo thả</strong>
+              <p>Nhập mỗi câu hoặc đáp án trên một dòng riêng.</p>
+            </div>
+          </div>
+          <div class="tq-edit-drag-fields">
+            <div class="tq-edit-drag-field">
+              <label class="tq-edit-label" for="tq-edit-drag-sentences">Câu có chỗ trống <code>___</code></label>
+              <textarea
+                id="tq-edit-drag-sentences"
+                class="tq-edit-textarea tq-edit-drag-textarea"
+                rows="5"
+                placeholder="VD: Đảng Cộng sản là ___ quan trọng nhất."
+              >${escapeHtml(sentences)}</textarea>
+              <span class="tq-edit-drag-field__hint">Mỗi dòng là một câu cần điền.</span>
+            </div>
+            <div class="tq-edit-drag-field">
+              <label class="tq-edit-label" for="tq-edit-drag-answers">Đáp án kéo thả</label>
+              <textarea
+                id="tq-edit-drag-answers"
+                class="tq-edit-textarea tq-edit-drag-textarea"
+                rows="5"
+                placeholder="VD: nhân tố chủ quan"
+              >${escapeHtml(answers)}</textarea>
+              <span class="tq-edit-drag-field__hint">Mỗi dòng là một đáp án tương ứng.</span>
+            </div>
+          </div>
+          <p class="tq-edit-hint tq-edit-drag-tip">
             <i data-lucide="info" class="tq-icon tq-icon--sm"></i>
-            Các đáp án sẽ được hiển thị ở trên để kéo vào chỗ <code>___</code>.
+            Các đáp án sẽ hiển thị thành thẻ để kéo vào vị trí <code>___</code>.
           </p>
         </div>
       `;
@@ -1552,16 +1575,35 @@ document.addEventListener('DOMContentLoaded', () => {
       if (q.type === 'fill_in_blank') {
         specialKey = `fill::${normalizeText(q.fill_blank_answer || '')}`;
       } else if (q.type === 'ordering') {
-        const w = (q.ordering_words || []).join('|');
-        const s = (q.ordering_sequence || []).join('|');
-        specialKey = `ord::${w}::${s}`;
+        const statements = Array.isArray(q.statements) && q.statements.length
+          ? q.statements.map((statement) => ({
+              words: (statement.ordering_words || []).map(normalizeText),
+              sequence: (statement.ordering_sequence || []).map(normalizeText),
+            }))
+          : [{
+              words: (q.ordering_words || []).map(normalizeText),
+              sequence: (q.ordering_sequence || []).map(normalizeText),
+            }];
+        specialKey = `ord::${JSON.stringify(statements)}`;
+      } else if (q.type === 'drag_into_groups') {
+        const groups = (q.drag_groups || []).map((group) => ({
+          label: normalizeText(group.label || ''),
+          answers: (group.answers || []).map(normalizeText),
+        }));
+        specialKey = `groups::${JSON.stringify(groups)}`;
       } else if (q.type === 'true_false') {
-        specialKey = `tf::${correctLabels}`;
+        const statements = (q.statements || []).map((statement) => ({
+          text: normalizeText(statement.text || ''),
+          answer: String(statement.answer || '').toLowerCase(),
+        }));
+        specialKey = statements.length
+          ? `tf-grouped::${JSON.stringify(statements)}`
+          : `tf::${correctLabels}`;
       }
 
       // KEY = text (đã bỏ marker đặc biệt) + correct_labels + special
       const textKey = normalizeText(q.text || '');
-      const key = `${textKey}::${correctLabels}::${specialKey}`;
+      const key = `${q.type || 'unknown'}::${textKey}::${correctLabels}::${specialKey}`;
 
       if (seen.has(key)) {
         const firstIdx = seen.get(key);
@@ -1862,8 +1904,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ── Init ──
-  populateSubjects();
   renderQuestions([], []);
-  loadExistingQuiz();
-  syncExistingQuizLinks();
+  loadDatabaseSubjects().finally(() => {
+    populateSubjects();
+    loadExistingQuiz();
+    syncExistingQuizLinks();
+  });
 });
