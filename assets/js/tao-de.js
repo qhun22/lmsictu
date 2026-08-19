@@ -72,6 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let currentFile = null;
+  let parseController = null;
   let questions = [];
   let editingQuizCode = new URLSearchParams(window.location.search).get('quiz');
 
@@ -160,11 +161,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ── File handling ──
+  function updateParseButton() {
+    btnParse.disabled = !currentFile || !subjectSelect.value || weekSelect.disabled;
+  }
+
   function setFile(file) {
     if (!file) {
       currentFile = null;
       fileInfo.hidden = true;
-      btnParse.disabled = true;
+      updateParseButton();
       return;
     }
 
@@ -185,14 +190,18 @@ document.addEventListener('DOMContentLoaded', () => {
     currentFile = file;
     fileNameEl.textContent = file.name;
     fileInfo.hidden = false;
-    btnParse.disabled = !subjectSelect.value || weekSelect.disabled;
+    updateParseButton();
   }
 
   function clearFile() {
+    parseController?.abort();
+    parseController = null;
     currentFile = null;
     fileInput.value = '';
     fileInfo.hidden = true;
-    btnParse.disabled = true;
+    fileNameEl.textContent = '';
+    dropzone.classList.remove('is-loading', 'is-dragover');
+    updateParseButton();
   }
 
   // ── Drag & drop ──
@@ -221,14 +230,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (file) setFile(file);
   });
   fileRemove.addEventListener('click', (e) => {
-    e.stopPropagation();
+    e.preventDefault();
+    e.stopImmediatePropagation();
     clearFile();
   });
 
   // ── Selects ──
   subjectSelect.addEventListener('change', () => {
     updateWeeks();
-    btnParse.disabled = !currentFile || !subjectSelect.value || weekSelect.disabled;
+    updateParseButton();
 
     // Khởi tạo icon có sẵn trong HTML, bao gồm empty state.
     if (window.lucide && window.lucide.createIcons) {
@@ -236,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   weekSelect.addEventListener('change', () => {
-    btnParse.disabled = !currentFile || !subjectSelect.value || weekSelect.disabled;
+    updateParseButton();
   });
 
   // ── Parse ──
@@ -250,12 +260,16 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const fileToParse = currentFile;
+    parseController?.abort();
+    const controller = new AbortController();
+    parseController = controller;
     dropzone.classList.add('is-loading');
     btnParse.disabled = true;
     btnClear.disabled = false;
 
     const formData = new FormData();
-    formData.append('file', currentFile);
+    formData.append('file', fileToParse);
     formData.append('subject', subjectSelect.value);
     formData.append('week_index', weekSelect.value || '');
 
@@ -268,6 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         body: formData,
         credentials: 'same-origin',
+        signal: controller.signal,
       });
       const data = await res.json();
 
@@ -289,21 +304,51 @@ document.addEventListener('DOMContentLoaded', () => {
       if (window.successToast) {
         window.successToast(
           'Đã parse',
-          `${questions.length} câu hỏi từ "${currentFile.name}"`,
+          `${questions.length} câu hỏi từ "${fileToParse.name}"`,
         );
       }
     } catch (err) {
+      if (err.name === 'AbortError') return;
       if (window.errorToast) {
         window.errorToast('Lỗi mạng', String(err && err.message ? err.message : err));
       }
       renderQuestions([], []);
     } finally {
-      dropzone.classList.remove('is-loading');
-      btnParse.disabled = !currentFile;
+      if (parseController === controller) {
+        parseController = null;
+        dropzone.classList.remove('is-loading');
+        updateParseButton();
+      }
     }
   });
 
-  btnClear.addEventListener('click', () => {
+  btnClear.addEventListener('click', async () => {
+    if (!currentFile && questions.length === 0) {
+      if (window.infoToast) window.infoToast('Không có dữ liệu', 'Hiện chưa có file hoặc câu hỏi để xóa');
+      return;
+    }
+
+    let confirmed = false;
+    if (window.confirmDanger) {
+      confirmed = await window.confirmDanger(
+        'Xóa toàn bộ dữ liệu?',
+        'File đã chọn và toàn bộ câu hỏi hiện tại sẽ bị xóa.',
+        { confirmLabel: 'Xóa hết', cancelLabel: 'Hủy', detail: 'Hành động này không thể hoàn tác.' },
+      );
+    } else if (window.showConfirm) {
+      confirmed = await window.showConfirm({
+        title: 'Xóa toàn bộ dữ liệu?',
+        message: 'File đã chọn và toàn bộ câu hỏi hiện tại sẽ bị xóa.',
+        detail: 'Hành động này không thể hoàn tác.',
+        confirmLabel: 'Xóa hết',
+        cancelLabel: 'Hủy',
+        type: 'danger',
+      });
+    } else {
+      confirmed = window.confirm('Bạn có chắc muốn xóa toàn bộ file và câu hỏi hiện tại không?');
+    }
+
+    if (!confirmed) return;
     clearFile();
     renderQuestions([], []);
     if (window.infoToast) window.infoToast('Đã xóa', 'Danh sách câu hỏi đã được làm mới');
@@ -840,6 +885,12 @@ document.addEventListener('DOMContentLoaded', () => {
     //   - true_false: có answer
     const validCount = items.filter((q) => {
       if (q.type === 'ordering') {
+        if (Array.isArray(q.statements) && q.statements.length) {
+          return q.statements.every((statement) =>
+            (statement.ordering_words || []).length > 0
+            && (statement.ordering_sequence || []).length > 0,
+          );
+        }
         return (q.ordering_words || []).length > 0
           && (q.ordering_sequence || []).length > 0;
       }

@@ -271,22 +271,51 @@
 }
 
 #tq-btn-add-question {
-  border: 1px solid var(--s-border-hover);
-  color: var(--s-accent-hover);
-  background: var(--s-surface);
+  min-width: 0;
+  border: 1px solid var(--s-accent);
+  color: #fff;
+  background: var(--s-accent);
 }
 
 #tq-btn-add-question:hover {
-  border-color: var(--s-accent);
-  background: var(--s-accent-light);
+  border-color: var(--s-accent-hover);
+  background: var(--s-accent-hover);
 }
 
 .tq-actions .smh-btn {
   flex: 1;
+  min-height: 40px;
+  padding: 10px 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  border: 1px solid var(--s-accent);
+  border-radius: 10px;
+  background: var(--s-accent);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.18);
+}
+
+.tq-actions .smh-btn:hover:not(:disabled) {
+  border-color: var(--s-accent-hover);
+  background: var(--s-accent-hover);
+  color: #fff;
+}
+
+.tq-actions .smh-btn:disabled {
+  border-color: var(--s-accent);
+  background: var(--s-accent);
+  color: #fff;
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.tq-actions .smh-btn--ghost {
+  border-color: var(--s-accent);
+  background: var(--s-accent);
+  color: #fff;
 }
 
 .tq-actions .smh-btn svg {

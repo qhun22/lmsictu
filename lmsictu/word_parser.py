@@ -296,7 +296,7 @@ QUESTION_TYPES = {
 }
 
 DEFAULT_ORDERING_PROMPT = 'Sắp xếp lại câu sau sao cho đúng cấu trúc.'
-DEFAULT_GROUPING_PROMPT = 'Phân chia đáp án vào nhóm phù hợp'
+DEFAULT_GROUPING_PROMPT = 'Phân chia đáp án vào nhóm phù hợp.'
 DEFAULT_DRAG_PROMPT = 'Kéo thả các từ vào vị trí thích hợp.'
 
 
