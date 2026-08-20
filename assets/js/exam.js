@@ -1,479 +1,501 @@
-/* exam.js — Làm bài thi trắc nghiệm */
+/* exam.js - Basic Exam Logic */
 
 document.addEventListener('DOMContentLoaded', () => {
   'use strict';
 
-  const $ = (id) => document.getElementById(id);
+  const $ = id => document.getElementById(id);
 
   const questions = window.__QUIZ_DATA__ || [];
   const quizCode = window.__QUIZ_CODE__ || '';
-  const quizTitle = window.__QUIZ_TITLE__ || '';
 
   if (!questions.length) {
-    $('exam-questions').innerHTML = '<p style="text-align:center;color:var(--ex-text-muted);padding:60px 0;">Không có câu hỏi nào.</p>';
+    $('question-card').innerHTML = '<p style="text-align:center;color:#888;padding:40px;">Không có câu hỏi nào.</p>';
     return;
   }
 
-  // ── State ──
+  // State
   let currentIdx = 0;
-  let answers = {};   // { idx: value }
+  let answers = {};
   let submitted = false;
+  let elapsedSeconds = 0;
 
-  // ── Helpers ──
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+  const timer = setInterval(() => {
+    if (submitted) return;
+    elapsedSeconds += 1;
+    const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+    const seconds = String(elapsedSeconds % 60).padStart(2, '0');
+    $('exam-timer').textContent = `${minutes}:${seconds}`;
+  }, 1000);
+
+  // Helpers
+  function esc(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
   }
 
-  function shuffle(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  // ── Render single question ──
+  // Render question
   function renderQuestion(q, idx) {
     const num = idx + 1;
-    const type = q.type || 'unknown';
-    const typeLabel = q.type_label || 'Câu hỏi';
-    const answered = answers[idx] !== undefined;
+    const type = q.type || 'single_choice';
+    const typeLabel = q.type_label || '1 đáp án đúng';
 
-    let html = `
-      <div class="exam-question" data-idx="${idx}">
-        <div class="exam-question__num">${num}</div>
-        <span class="exam-question__type">${escapeHtml(typeLabel)}</span>
-        <p class="exam-question__text">${escapeHtml(type === 'ordering'
-          ? (q.text || 'Sắp xếp lại câu sau sao cho đúng cấu trúc.')
-          : type === 'true_false' && q.statements?.length
-            ? 'Chọn đáp án Đúng Sai phù hợp.'
-            : (q.text || q.marker || ''))}</p>
-    `;
+    $('question-num').textContent = `Câu ${num}`;
+    $('question-type').textContent = typeLabel;
+    const currentNum = $('current-num');
+    if (currentNum) currentNum.textContent = num;
 
-    switch (type) {
-      case 'single_choice':
-      case 'multiple_response':
-        html += renderChoiceOptions(q, idx);
-        break;
-      case 'true_false':
-        html += renderTFOptions(q, idx);
-        break;
-      case 'fill_in_blank':
-        html += renderFillOptions(q, idx);
-        break;
-      case 'ordering':
-        html += renderOrderOptions(q, idx);
-        break;
-      case 'drag_into_text':
-      case 'drag_into_groups':
-        html += renderDragOptions(q, idx);
-        break;
-      default:
-        html += `<p style="color:var(--ex-text-muted);font-size:0.85rem;">Chưa hỗ trợ dạng câu hỏi này.</p>`;
+    // Question text
+    let text = q.text || '';
+    if (type === 'ordering') text = q.text || 'Sắp xếp các từ theo đúng thứ tự.';
+    if (type === 'true_false' && q.statements?.length) text = 'Chọn Đúng hoặc Sai cho mỗi mệnh đề.';
+    if (type === 'drag_into_text') text = q.text || 'Kéo đáp án vào chỗ trống.';
+    $('question-text').textContent = text;
+
+    const list = $('answer-list');
+    list.innerHTML = '';
+
+    if (type === 'single_choice' || type === 'multiple_response') {
+      renderChoice(q, idx, list);
+    } else if (type === 'true_false') {
+      renderTF(q, idx, list);
+    } else if (type === 'fill_in_blank') {
+      renderFill(q, idx, list);
+    } else if (type === 'ordering') {
+      renderOrder(q, idx, list);
+    } else if (type === 'drag_into_text') {
+      renderDragIntoText(q, idx, list);
+    } else if (type === 'drag_into_groups') {
+      renderDrag(q, idx, list);
+    } else {
+      list.innerHTML = '<p style="color:#888;">Dạng câu hỏi này chưa được hỗ trợ.</p>';
     }
 
-    html += `</div>`;
-    return html;
+    updateNav();
   }
 
-  // ── Single / Multiple choice ──
-  function renderChoiceOptions(q, idx) {
-    const opts = (q.options || []).map((o) => ({
-      label: o.label,
-      text: o.text,
-    }));
+  // Single/Multiple choice
+  function renderChoice(q, idx, container) {
+    const opts = q.options || [];
     const selected = answers[idx] || [];
 
-    return `<div class="exam-options">
-      ${opts.map((o) => {
-        const isSelected = selected.includes(o.label);
-        return `<div class="exam-option${isSelected ? ' is-selected' : ''}" data-label="${o.label}" data-idx="${idx}">
-          <span class="exam-option__label">${o.label}</span>
-          <span class="exam-option__text">${escapeHtml(o.text)}</span>
-        </div>`;
-      }).join('')}
-    </div>`;
+    opts.forEach(opt => {
+      const div = document.createElement('div');
+      div.className = 'answer-item' + (selected.includes(opt.label) ? ' selected' : '');
+      div.innerHTML = `<span class="answer-label">${opt.label}</span><span class="answer-text">${esc(opt.text)}</span>`;
+      div.addEventListener('click', () => {
+        if (submitted) return;
+        if (q.type === 'multiple_response') {
+          const cur = answers[idx] || [];
+          const i = cur.indexOf(opt.label);
+          if (i >= 0) cur.splice(i, 1);
+          else cur.push(opt.label);
+          answers[idx] = cur;
+          div.classList.toggle('selected');
+        } else {
+          answers[idx] = [opt.label];
+          container.querySelectorAll('.answer-item').forEach(el => el.classList.remove('selected'));
+          div.classList.add('selected');
+        }
+        updateNav();
+      });
+      container.appendChild(div);
+    });
   }
 
-  // ── True/False ──
-  function renderTFOptions(q, idx) {
-    if (Array.isArray(q.statements) && q.statements.length) {
-      const selected = answers[idx] || {};
-      return `<div class="exam-tf-grouped">
-        ${q.statements.map((statement, statementIdx) => `
-          <div class="exam-tf-statement">
-            <p class="exam-tf-statement__text">${statementIdx + 1}. ${escapeHtml(statement.text)}</p>
-            <div class="exam-tf-row" data-statement-idx="${statementIdx}">
-              <button type="button" class="exam-tf-btn${selected[statementIdx] === 'true' ? ' is-selected' : ''}" data-value="true" data-statement-idx="${statementIdx}" data-idx="${idx}">✓ Đúng</button>
-              <button type="button" class="exam-tf-btn${selected[statementIdx] === 'false' ? ' is-selected' : ''}" data-value="false" data-statement-idx="${statementIdx}" data-idx="${idx}">✗ Sai</button>
-            </div>
-          </div>
-        `).join('')}
-      </div>`;
+  // True/False
+  function renderTF(q, idx, container) {
+    const statements = q.statements || [];
+    container.classList.add('tf-statements');
+    container.classList.toggle('is-grid', statements.length >= 4);
+    container.classList.toggle('is-stack', statements.length < 4);
+
+    if (statements.length) {
+      statements.forEach((stmt, si) => {
+        const div = document.createElement('div');
+        div.className = 'tf-statement';
+        div.innerHTML = `<p style="margin-bottom:8px;font-weight:500;">${si + 1}. ${esc(stmt.text)}</p>`;
+        const btnGroup = document.createElement('div');
+        btnGroup.className = 'tf-buttons';
+        const selected = (answers[idx] || {})[si];
+
+        ['Đúng', 'Sai'].forEach((label, i) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'tf-btn' + (selected === (i === 0 ? 'true' : 'false') ? ' selected' : '');
+          btn.textContent = label;
+          btn.addEventListener('click', () => {
+            if (submitted) return;
+            if (!answers[idx]) answers[idx] = {};
+            answers[idx][si] = i === 0 ? 'true' : 'false';
+            btnGroup.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            updateNav();
+          });
+          btnGroup.appendChild(btn);
+        });
+        div.appendChild(btnGroup);
+        container.appendChild(div);
+      });
+    } else {
+      const btnGroup = document.createElement('div');
+      btnGroup.className = 'tf-buttons';
+      const selected = answers[idx];
+      ['Đúng', 'Sai'].forEach((label, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tf-btn' + (selected === (i === 0 ? 'true' : 'false') ? ' selected' : '');
+        btn.textContent = label;
+        btn.addEventListener('click', () => {
+          if (submitted) return;
+          answers[idx] = i === 0 ? 'true' : 'false';
+          btnGroup.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          updateNav();
+        });
+        btnGroup.appendChild(btn);
+      });
+      container.appendChild(btnGroup);
     }
-    const selected = answers[idx] || '';
-    return `<div class="exam-tf-row">
-      <button type="button" class="exam-tf-btn${selected === 'true' ? ' is-selected' : ''}" data-value="true" data-idx="${idx}">✓ Đúng</button>
-      <button type="button" class="exam-tf-btn${selected === 'false' ? ' is-selected' : ''}" data-value="false" data-idx="${idx}">✗ Sai</button>
-    </div>`;
   }
 
-  // ── Fill in blank ──
-  function renderFillOptions(q, idx) {
-    const val = answers[idx] || '';
-    return `<div class="exam-fill-row">
-      <input type="text" class="exam-fill-input" data-idx="${idx}" value="${escapeHtml(val)}" placeholder="Nhập đáp án..." autocomplete="off" />
-    </div>`;
+  // Fill in blank
+  function renderFill(q, idx, container) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'fill-input';
+    input.placeholder = 'Nhập đáp án...';
+    input.value = answers[idx] || '';
+    input.addEventListener('input', () => {
+      if (submitted) return;
+      answers[idx] = input.value.trim();
+      updateNav();
+    });
+    container.appendChild(input);
   }
 
-  // ── Ordering ──
-  function renderOrderOptions(q, idx) {
-    if (Array.isArray(q.statements) && q.statements.length) {
-      const selected = answers[idx] || {};
-      return `<div class="exam-order-grouped">
-        ${q.statements.map((statement, statementIdx) => {
-          const ordered = selected[statementIdx] ? selected[statementIdx].split('|') : shuffle(statement.ordering_words);
-          return `<div class="exam-order-statement">
-            <p class="exam-order-statement__title">${statementIdx + 1}. Sắp xếp các từ:</p>
-            <div class="exam-options" data-idx="${idx}" data-statement-idx="${statementIdx}">
-              ${ordered.map((word) => `<div class="exam-option is-selected" draggable="true" data-word="${escapeHtml(word)}" data-idx="${idx}" data-statement-idx="${statementIdx}"><span class="exam-option__label">↕</span><span class="exam-option__text">${escapeHtml(word)}</span></div>`).join('')}
-            </div>
-          </div>`;
-        }).join('')}
-      </div>`;
+  // Ordering
+  function renderOrder(q, idx, container) {
+    const statements = q.statements?.length
+      ? q.statements
+      : [{ ordering_words: q.ordering_words || [] }];
+    if (!statements.some(statement => statement.ordering_words?.length)) {
+      container.innerHTML = '<p style="color:#888;">Chưa có dữ liệu sắp xếp.</p>';
+      return;
     }
-    const words = [...(q.ordering_words || [])];
-    // Nếu đã trả lời, dùng thứ tự đã chọn; ngược lại shuffle
-    const ordered = answers[idx]
-      ? answers[idx].split('|')
-      : shuffle(words);
-    return `<div class="exam-options" data-idx="${idx}">
-      ${ordered.map((w) => `
-        <div class="exam-option is-selected" draggable="true" data-word="${escapeHtml(w)}">
-          <span class="exam-option__label">↕</span>
-          <span class="exam-option__text">${escapeHtml(w)}</span>
-        </div>`).join('')}
-    </div>
-    <p style="font-size:0.78rem;color:var(--ex-text-muted);margin-top:8px;">Kéo thả để sắp xếp thứ tự đúng.</p>`;
+    const saved = answers[idx] && typeof answers[idx] === 'object' ? answers[idx] : {};
+    answers[idx] = saved;
+    container.classList.add('ordering-statements');
+    container.classList.toggle('is-grid', statements.length >= 4);
+
+    statements.forEach((statement, statementIndex) => {
+      const words = [...(statement.ordering_words || [])];
+      if (!words.length) return;
+      const savedOrder = saved[String(statementIndex)]?.split('|').filter(Boolean);
+      const ordered = savedOrder?.length ? savedOrder : [];
+      const available = words.filter(word => !ordered.includes(word));
+      const block = document.createElement('section');
+      block.className = 'ordering-statement';
+      block.innerHTML = statements.length > 1
+        ? `<div class="ordering-statement-title">${statementIndex + 1}.</div>`
+        : '';
+
+      const pool = document.createElement('div');
+      pool.className = 'ordering-pool';
+      const orderZone = document.createElement('div');
+      orderZone.className = 'ordering-zone';
+      orderZone.innerHTML = '<span class="ordering-placeholder">_ _ _ _</span>';
+
+      const refresh = () => {
+        pool.innerHTML = '';
+        orderZone.innerHTML = '';
+        ordered.forEach((word, position) => orderZone.appendChild(createOrderingChip(word, position, true)));
+        available.forEach((word, position) => pool.appendChild(createOrderingChip(word, position, false)));
+        if (!ordered.length) orderZone.innerHTML = '<span class="ordering-placeholder">_ _ _ _</span>';
+        saved[String(statementIndex)] = ordered.join('|');
+        updateNav();
+      };
+      const createOrderingChip = (word, position, inOrder) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = `ordering-chip${inOrder ? ' is-placed' : ''}`;
+        chip.textContent = word;
+        chip.draggable = true;
+        chip.addEventListener('click', () => {
+          if (inOrder) {
+            available.push(word);
+            ordered.splice(position, 1);
+          } else {
+            ordered.push(word);
+            available.splice(position, 1);
+          }
+          refresh();
+        });
+        chip.addEventListener('dragstart', event => {
+          event.dataTransfer.setData('text/plain', JSON.stringify({ word, inOrder, position }));
+        });
+        return chip;
+      };
+      orderZone.addEventListener('dragover', event => event.preventDefault());
+      orderZone.addEventListener('drop', event => {
+        event.preventDefault();
+        const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+        if (data.inOrder) ordered.splice(data.position, 1);
+        else available.splice(data.position, 1);
+        ordered.push(data.word);
+        refresh();
+      });
+      pool.addEventListener('dragover', event => event.preventDefault());
+      pool.addEventListener('drop', event => {
+        event.preventDefault();
+        const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+        if (data.inOrder) {
+          ordered.splice(data.position, 1);
+          available.push(data.word);
+          refresh();
+        }
+      });
+      block.append(pool, orderZone);
+      container.appendChild(block);
+      refresh();
+    });
   }
 
-  // ── Drag into text ──
-  function renderDragOptions(q, idx) {
-    if (Array.isArray(q.drag_groups) && q.drag_groups.length) {
-      const placed = answers[idx] || {};
-      const allAnswers = q.drag_groups.flatMap((group) => group.answers || []);
-      return `<div class="exam-drag-groups">
-        <div class="exam-drag-pool"><span class="exam-drag-pool__label">Kéo đáp án vào nhóm tương ứng:</span>${shuffle(allAnswers).map((answer) => {
-          const used = Object.values(placed).some((items) => Array.isArray(items) && items.includes(answer));
-          return `<span class="exam-drag-tile${used ? ' is-placed' : ''}" draggable="true" data-answer="${escapeHtml(answer)}" data-qidx="${idx}">${escapeHtml(answer)}</span>`;
-        }).join('')}</div>
-        ${q.drag_groups.map((group, groupIdx) => `<div class="exam-drag-group" data-groupidx="${groupIdx}" data-qidx="${idx}"><strong>${escapeHtml(group.label)}</strong><div class="exam-drag-group-items">${(placed[groupIdx] || []).map((answer) => `<span class="exam-drag-tile is-placed">${escapeHtml(answer)}</span>`).join('')}</div></div>`).join('')}
-      </div>`;
-    }
+  // Drag into text
+  function renderDragIntoText(q, idx, container) {
     const sentences = q.drag_sentences || [];
-    const ansList = q.drag_answers || [];
-    const placed = answers[idx] || {}; // { slot_idx: answer_text }
+    const allAnswers = q.drag_answers || [];
+    if (!sentences.length || !allAnswers.length) {
+      container.innerHTML = '<p style="color:#888;">Chưa có dữ liệu kéo thả.</p>';
+      return;
+    }
+    const sentenceAnswers = answers[idx] && typeof answers[idx] === 'object' ? answers[idx] : {};
+    answers[idx] = sentenceAnswers;
+    const pool = document.createElement('div');
+    pool.className = 'text-drag-pool';
+    const poolTitle = document.createElement('strong');
+    poolTitle.textContent = 'Đáp án';
+    pool.appendChild(poolTitle);
+    const sentenceList = document.createElement('div');
+    sentenceList.className = 'text-drag-sentences';
 
-    // Shuffle answers
-    const shuffled = shuffle(ansList);
-
-    // Render slots (câu có ___)
-    const sentencesHtml = sentences.length
-      ? sentences.map((s, si) => {
-          const placedAnswer = placed[si];
-          const slotFilled = !!placedAnswer;
-          const slotClass = slotFilled ? 'exam-slot is-filled' : 'exam-slot';
-          return `<p>${escapeHtml(s.text || '').replace(
-            /___+/,
-            `<span class="${slotClass}" data-slotidx="${si}" data-qidx="${idx}">${placedAnswer ? escapeHtml(placedAnswer) : '___'}</span>`
-          )}</p>`;
-        }).join('')
-      : '<p style="color:var(--ex-text-muted)">(Chưa có câu)</p>';
-
-    // Render answer tiles
-    const tilesHtml = shuffled.map((a) => {
-      const isUsed = Object.values(placed).includes(a);
-      return `<span class="exam-drag-tile${isUsed ? ' is-placed' : ''}" draggable="true" data-answer="${escapeHtml(a)}" data-qidx="${idx}">${escapeHtml(a)}</span>`;
-    }).join('');
-
-    return `<div class="exam-drag-pool">
-      <span class="exam-drag-pool__label">Kéo đáp án vào chỗ trống:</span>
-      ${tilesHtml}
-    </div>
-    <div class="exam-sentences">${sentencesHtml}</div>`;
+    const render = () => {
+      pool.querySelectorAll('.text-drag-chip').forEach(chip => chip.remove());
+      const used = new Set(Object.values(sentenceAnswers).filter(Boolean));
+      allAnswers.filter(answer => !used.has(answer)).forEach(answer => pool.appendChild(createTextChip(answer)));
+      sentenceList.innerHTML = '';
+      sentences.forEach((sentence, sentenceIndex) => {
+        const row = document.createElement('div');
+        row.className = 'text-drag-sentence';
+        const parts = String(sentence.text || '').split('___');
+        row.appendChild(document.createTextNode(`${sentenceIndex + 1}. ${parts[0] || ''}`));
+        const slot = document.createElement('button');
+        slot.type = 'button';
+        slot.className = `text-drag-slot${sentenceAnswers[String(sentenceIndex)] ? ' is-filled' : ''}`;
+        slot.textContent = sentenceAnswers[String(sentenceIndex)] || '';
+        slot.setAttribute('aria-label', 'Vị trí thả đáp án');
+        slot.addEventListener('click', () => {
+          delete sentenceAnswers[String(sentenceIndex)];
+          render();
+          updateNav();
+        });
+        slot.addEventListener('dragover', event => event.preventDefault());
+        slot.addEventListener('drop', event => {
+          event.preventDefault();
+          const answer = event.dataTransfer.getData('text/plain');
+          if (!answer) return;
+          Object.keys(sentenceAnswers).forEach(key => {
+            if (sentenceAnswers[key] === answer) delete sentenceAnswers[key];
+          });
+          sentenceAnswers[String(sentenceIndex)] = answer;
+          render();
+          updateNav();
+        });
+        row.appendChild(slot);
+        row.appendChild(document.createTextNode(parts[1] || ''));
+        sentenceList.appendChild(row);
+      });
+    };
+    const createTextChip = answer => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'text-drag-chip';
+      chip.textContent = answer;
+      chip.draggable = true;
+      chip.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', answer));
+      return chip;
+    };
+    pool.addEventListener('dragover', event => event.preventDefault());
+    container.append(pool, sentenceList);
+    render();
   }
 
-  // ── Render all ──
-  function renderAll() {
-    const el = $('exam-questions');
-    el.innerHTML = renderQuestion(questions[currentIdx], currentIdx);
-    updateNav();
-    updateProgress();
-    attachHandlers();
+  function renderDrag(q, idx, container) {
+    const groups = q.drag_groups || [];
+    const answers_list = q.drag_answers || groups.flatMap(group => group.answers || []);
+    if (!answers_list.length || !groups.length) {
+      container.innerHTML = '<p style="color:#888;">Chưa có đáp án kéo thả.</p>';
+      return;
+    }
+    const grouped = answers[idx] && typeof answers[idx] === 'object' ? answers[idx] : {};
+    answers[idx] = grouped;
+    const placed = new Set(Object.values(grouped).flat());
+    const pool = document.createElement('div');
+    pool.className = 'grouping-pool';
+    const groupsWrap = document.createElement('div');
+    groupsWrap.className = 'grouping-groups';
+    const render = () => {
+      pool.innerHTML = '<span class="grouping-pool-title">Đáp án</span>';
+      answers_list.filter(answer => !placed.has(answer)).forEach(answer => pool.appendChild(createGroupChip(answer)));
+      groupsWrap.innerHTML = '';
+      groups.forEach((group, groupIndex) => {
+        const zone = document.createElement('div');
+        zone.className = 'grouping-zone';
+        zone.innerHTML = `<h3>${esc(group.label || `Nhóm ${groupIndex + 1}`)}</h3>`;
+        (grouped[String(groupIndex)] || []).forEach(answer => zone.appendChild(createGroupChip(answer, groupIndex)));
+        zone.addEventListener('dragover', event => event.preventDefault());
+        zone.addEventListener('drop', event => {
+          event.preventDefault();
+          const answer = event.dataTransfer.getData('text/plain');
+          if (!answer) return;
+          Object.values(grouped).forEach(items => { const at = items.indexOf(answer); if (at >= 0) items.splice(at, 1); });
+          grouped[String(groupIndex)] = grouped[String(groupIndex)] || [];
+          grouped[String(groupIndex)].push(answer);
+          placed.add(answer);
+          render();
+          updateNav();
+        });
+        groupsWrap.appendChild(zone);
+      });
+    };
+    const createGroupChip = (answer, groupIndex) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'grouping-chip';
+      chip.textContent = answer;
+      chip.draggable = true;
+      chip.addEventListener('dragstart', event => event.dataTransfer.setData('text/plain', answer));
+      chip.addEventListener('click', () => {
+        if (groupIndex === undefined) return;
+        grouped[String(groupIndex)] = (grouped[String(groupIndex)] || []).filter(item => item !== answer);
+        placed.delete(answer);
+        render();
+        updateNav();
+      });
+      return chip;
+    };
+    pool.addEventListener('dragover', event => event.preventDefault());
+    pool.addEventListener('drop', event => {
+      event.preventDefault();
+      const answer = event.dataTransfer.getData('text/plain');
+      Object.values(grouped).forEach(items => { const at = items.indexOf(answer); if (at >= 0) items.splice(at, 1); });
+      placed.delete(answer);
+      render();
+      updateNav();
+    });
+    container.append(pool, groupsWrap);
+    render();
   }
 
-  // ── Nav ──
+  // Update nav buttons & dots
+  function updateNav() {
+    const total = questions.length;
+    const totalNum = $('total-num');
+    if (totalNum) totalNum.textContent = total;
+    $('btn-prev').disabled = false;
+    $('btn-next').disabled = currentIdx === total - 1;
+
+    const dots = $('nav-dots');
+    dots.innerHTML = '';
+    let currentDot = null;
+    const firstVisible = total > 3
+      ? Math.min(Math.max(currentIdx - 1, 0), total - 3)
+      : 0;
+    const lastVisible = Math.min(firstVisible + 3, total);
+    for (let i = firstVisible; i < lastVisible; i++) {
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'nav-dot';
+      dot.dataset.question = i + 1;
+      dot.setAttribute('aria-label', `Đi tới câu ${i + 1}`);
+      if (i === currentIdx) dot.classList.add('current');
+      if (answers[i] !== undefined) dot.classList.add('answered');
+      dot.addEventListener('click', () => goTo(i));
+      dots.appendChild(dot);
+      if (i === currentIdx) currentDot = dot;
+    }
+    currentDot?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+
+    const drawerList = $('question-drawer-list');
+    if (drawerList) {
+      drawerList.innerHTML = '';
+      for (let i = 0; i < total; i++) {
+        const drawerQuestion = document.createElement('button');
+        drawerQuestion.type = 'button';
+        drawerQuestion.className = 'drawer-question';
+        drawerQuestion.textContent = `Câu ${i + 1}`;
+        if (i === currentIdx) drawerQuestion.classList.add('is-current');
+        if (answers[i] !== undefined) drawerQuestion.classList.add('is-answered');
+        drawerQuestion.addEventListener('click', () => {
+          goTo(i);
+          closeQuestionDrawer();
+        });
+        drawerList.appendChild(drawerQuestion);
+      }
+    }
+  }
+
   function goTo(idx) {
     if (idx < 0 || idx >= questions.length) return;
     currentIdx = idx;
-    renderAll();
+    renderQuestion(questions[idx], idx);
   }
 
-  function updateNav() {
-    $('btn-prev').disabled = currentIdx === 0;
-    $('btn-next').disabled = currentIdx === questions.length - 1;
-    updateDots();
-  }
-
-  function updateDots() {
-    const dots = $('question-dots');
-    dots.innerHTML = questions.map((_, i) => {
-      const isCurrent = i === currentIdx;
-      const isAnswered = answers[i] !== undefined;
-      return `<button class="exam-dot${isCurrent ? ' is-current' : ''}${isAnswered ? ' is-answered' : ''}" data-idx="${i}"></button>`;
-    }).join('');
-  }
-
-  function updateProgress() {
-    const answered = Object.keys(answers).length;
-    const total = questions.length;
-    $('answered-count').textContent = answered;
-    $('total-count').textContent = total;
-    const pct = total ? (answered / total * 100) : 0;
-    $('progress-fill').style.width = pct + '%';
-  }
-
-  // ── Attach handlers ──
-  function attachHandlers() {
-    const q = questions[currentIdx];
-    const idx = currentIdx;
-
-    // Options (single/multiple)
-    document.querySelectorAll('.exam-option:not(.exam-tf-btn)').forEach((el) => {
-      el.addEventListener('click', () => {
-        if (submitted) return;
-        const label = el.dataset.label;
-        const word = el.dataset.word;
-        const qidx = parseInt(el.dataset.idx || idx);
-
-        if (word !== undefined) {
-          // Ordering — move tile
-          handleOrderMove(el);
-          return;
-        }
-
-        const qtype = questions[qidx].type;
-        if (qtype === 'multiple_response') {
-          // Toggle multi
-          const cur = answers[qidx] || [];
-          const i = cur.indexOf(label);
-          if (i >= 0) cur.splice(i, 1);
-          else cur.push(label);
-          answers[qidx] = cur;
-          el.classList.toggle('is-selected');
-        } else {
-          // Single
-          answers[qidx] = [label];
-          document.querySelectorAll(`.exam-option[data-idx="${qidx}"]`).forEach((e) => e.classList.remove('is-selected'));
-          el.classList.add('is-selected');
-        }
-        updateNav();
-        updateProgress();
-      });
-    });
-
-    // True/False
-    document.querySelectorAll('.exam-tf-btn').forEach((el) => {
-      el.addEventListener('click', () => {
-        if (submitted) return;
-        const qidx = parseInt(el.dataset.idx || idx);
-        const statementIdx = el.dataset.statementIdx;
-        if (statementIdx !== undefined) {
-          const groupedAnswer = answers[qidx] || {};
-          groupedAnswer[statementIdx] = el.dataset.value;
-          answers[qidx] = groupedAnswer;
-          document.querySelectorAll(`.exam-tf-btn[data-idx="${qidx}"][data-statement-idx="${statementIdx}"]`).forEach((button) => button.classList.remove('is-selected'));
-          el.classList.add('is-selected');
-          updateNav();
-          updateProgress();
-          return;
-        }
-        answers[qidx] = el.dataset.value;
-        document.querySelectorAll(`.exam-tf-btn[data-idx="${qidx}"]`).forEach((e) => e.classList.remove('is-selected'));
-        el.classList.add('is-selected');
-        updateNav();
-        updateProgress();
-      });
-    });
-
-    // Fill input
-    document.querySelectorAll('.exam-fill-input').forEach((el) => {
-      el.addEventListener('input', () => {
-        if (submitted) return;
-        const qidx = parseInt(el.dataset.idx || idx);
-        answers[qidx] = el.value.trim();
-        updateNav();
-        updateProgress();
-      });
-    });
-
-    // Drag tiles
-    attachDragHandlers(idx);
-
-    // Dots
-    document.querySelectorAll('.exam-dot').forEach((dot) => {
-      dot.addEventListener('click', () => goTo(parseInt(dot.dataset.idx)));
-    });
-  }
-
-  // ── Drag & Drop ──
-  function attachDragHandlers(qidx) {
-    let dragged = null;
-
-    document.querySelectorAll('.exam-drag-tile').forEach((tile) => {
-      tile.addEventListener('dragstart', (e) => {
-        dragged = tile;
-        tile.classList.add('is-dragging');
-        e.dataTransfer.setData('text/plain', tile.dataset.answer);
-      });
-      tile.addEventListener('dragend', () => {
-        if (dragged) dragged.classList.remove('is-dragging');
-        dragged = null;
-      });
-    });
-
-    document.querySelectorAll('.exam-drag-group').forEach((group) => {
-      group.addEventListener('dragover', (event) => event.preventDefault());
-      group.addEventListener('drop', (event) => {
-        event.preventDefault();
-        if (!dragged || submitted) return;
-        const answer = dragged.dataset.answer;
-        const questionIndex = Number(group.dataset.qidx || qidx);
-        const groupIndex = Number(group.dataset.groupidx);
-        if (!answers[questionIndex] || typeof answers[questionIndex] !== 'object') answers[questionIndex] = {};
-        Object.keys(answers[questionIndex]).forEach((key) => {
-          answers[questionIndex][key] = (answers[questionIndex][key] || []).filter((item) => item !== answer);
-        });
-        answers[questionIndex][groupIndex] = [...(answers[questionIndex][groupIndex] || []), answer];
-        group.querySelector('.exam-drag-group-items').insertAdjacentHTML('beforeend', `<span class="exam-drag-tile is-placed">${escapeHtml(answer)}</span>`);
-        dragged.remove();
-        updateProgress();
-      });
-    });
-
-    document.querySelectorAll('.exam-slot').forEach((slot) => {
-      slot.addEventListener('dragover', (e) => e.preventDefault());
-      slot.addEventListener('drop', (e) => {
-        e.preventDefault();
-        if (!dragged || submitted) return;
-        const ans = dragged.dataset.answer;
-        const qidx = parseInt(dragged.dataset.qidx || slot.dataset.qidx || qidx);
-        const slotIdx = parseInt(slot.dataset.slotidx);
-        if (answers[qidx] === undefined) answers[qidx] = {};
-        answers[qidx][slotIdx] = ans;
-        // Update slot display
-        slot.textContent = ans;
-        slot.classList.add('is-filled');
-        // Mark tile as used
-        dragged.classList.add('is-placed');
-        updateNav();
-        updateProgress();
-      });
-    });
-
-    // Click tile → pick first empty slot
-    document.querySelectorAll('.exam-drag-tile:not(.is-placed)').forEach((tile) => {
-      tile.addEventListener('click', () => {
-        if (submitted) return;
-        const ans = tile.dataset.answer;
-        const qidx = parseInt(tile.dataset.qidx || qidx);
-        if (answers[qidx] === undefined) answers[qidx] = {};
-        const slots = document.querySelectorAll(`.exam-slot[data-qidx="${qidx}"]:not(.is-filled)`);
-        if (slots.length === 0) return;
-        const slot = slots[0];
-        const slotIdx = parseInt(slot.dataset.slotidx);
-        answers[qidx][slotIdx] = ans;
-        slot.textContent = ans;
-        slot.classList.add('is-filled');
-        tile.classList.add('is-placed');
-        updateNav();
-        updateProgress();
-      });
-    });
-
-    // Click filled slot → return tile
-    document.querySelectorAll('.exam-slot.is-filled').forEach((slot) => {
-      slot.addEventListener('click', () => {
-        if (submitted) return;
-        const qidx = parseInt(slot.dataset.qidx || qidx);
-        const slotIdx = parseInt(slot.dataset.slotidx);
-        const ans = answers[qidx]?.[slotIdx];
-        if (!ans) return;
-        delete answers[qidx][slotIdx];
-        slot.textContent = '___';
-        slot.classList.remove('is-filled');
-        // Un-mark tile
-        document.querySelectorAll(`.exam-drag-tile[data-answer="${CSS.escape(ans)}"]`).forEach((t) => {
-          if (parseInt(t.dataset.qidx || qidx) === qidx) t.classList.remove('is-placed');
-        });
-        updateProgress();
-      });
-    });
-  }
-
-  // ── Ordering drag ──
-  function handleOrderMove(el) {
-    const opts = el.parentElement;
-    const items = [...opts.querySelectorAll('.exam-option')];
-    const fromIdx = items.indexOf(el);
-    const qidx = parseInt(el.dataset.qidx);
-    const statementIdx = el.dataset.statementIdx;
-
-    el.addEventListener('dragover', (e) => e.preventDefault());
-    el.addEventListener('drop', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const toIdx = items.indexOf(el);
-      if (fromIdx < toIdx) {
-        opts.insertBefore(items[fromIdx], items[toIdx + 1] || null);
-      } else if (fromIdx > toIdx) {
-        opts.insertBefore(items[fromIdx], items[toIdx]);
-      }
-      items.splice(0);
-      [...opts.querySelectorAll('.exam-option')].forEach((item, i) => items.push(item));
-      const order = items.map((it) => it.dataset.word);
-      if (statementIdx !== undefined) {
-        if (!answers[qidx] || typeof answers[qidx] !== 'object') answers[qidx] = {};
-        answers[qidx][statementIdx] = order.join('|');
-      } else {
-        answers[qidx] = order.join('|');
-      }
-      updateProgress();
-    });
-  }
-
-  // ── Submit ──
+  // Event listeners
+  $('btn-prev').addEventListener('click', () => {
+    toggleQuestionDrawer();
+  });
+  $('btn-next').addEventListener('click', () => goTo(currentIdx + 1));
   $('btn-submit').addEventListener('click', () => {
     $('modal-answered').textContent = Object.keys(answers).length;
     $('modal-submit').hidden = false;
   });
-
-  $('modal-cancel').addEventListener('click', () => {
-    $('modal-submit').hidden = true;
-  });
-
-  $('modal-submit').addEventListener('click', (e) => {
+  $('modal-cancel').addEventListener('click', () => $('modal-submit').hidden = true);
+  $('modal-submit').addEventListener('click', e => {
     if (e.target === $('modal-submit')) $('modal-submit').hidden = true;
   });
-
   $('modal-confirm').addEventListener('click', submitExam);
+  $('btn-close-result').addEventListener('click', () => $('modal-result').hidden = true);
 
-  // ── Submit API ──
+  $('question-drawer-close').addEventListener('click', closeQuestionDrawer);
+  $('question-drawer-backdrop').addEventListener('click', closeQuestionDrawer);
+
+  function toggleQuestionDrawer() {
+    const drawer = $('question-drawer');
+    const backdrop = $('question-drawer-backdrop');
+    const isOpen = drawer.classList.toggle('is-open');
+    backdrop.classList.toggle('is-open', isOpen);
+    drawer.setAttribute('aria-hidden', String(!isOpen));
+  }
+
+  function closeQuestionDrawer() {
+    const drawer = $('question-drawer');
+    const backdrop = $('question-drawer-backdrop');
+    drawer.classList.remove('is-open');
+    backdrop.classList.remove('is-open');
+    drawer.setAttribute('aria-hidden', 'true');
+  }
+
+  // Keyboard nav
+  document.addEventListener('keydown', e => {
+    if (submitted || $('modal-submit').hidden === false) return;
+    if (e.key === 'Escape') {
+      closeQuestionDrawer();
+      return;
+    }
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(currentIdx + 1);
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goTo(currentIdx - 1);
+  });
+
+  // Submit
   async function submitExam() {
     $('modal-submit').hidden = true;
     $('btn-submit').disabled = true;
@@ -493,19 +515,19 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(data.message || 'Lỗi khi nộp bài.');
         $('btn-submit').disabled = false;
       }
-    } catch (err) {
+    } catch {
       alert('Lỗi kết nối. Vui lòng thử lại.');
       $('btn-submit').disabled = false;
     }
   }
 
-  // ── Show results ──
+  // Show results
   function showResults(data) {
-    const { score, correct, total, results } = data;
+    const { score, correct, total } = data;
+
     $('result-score').textContent = score;
     $('result-detail').textContent = `Đúng ${correct} / ${total} câu`;
 
-    // Icon
     if (score >= 8) {
       $('result-icon').textContent = '🏆';
       $('result-title').textContent = 'Xuất sắc!';
@@ -514,68 +536,20 @@ document.addEventListener('DOMContentLoaded', () => {
       $('result-title').textContent = 'Tốt lắm!';
     } else if (score >= 4) {
       $('result-icon').textContent = '💪';
-      $('result-title').textContent = 'Cố gắng hơn nhé!';
+      $('result-title').textContent = 'Cố gắng hơn!';
     } else {
       $('result-icon').textContent = '📚';
       $('result-title').textContent = 'Cần ôn tập thêm';
     }
 
-    // Breakdown
-    const bd = $('result-breakdown');
-    bd.innerHTML = results.map((r) => {
-      const icon = r.correct ? '✅' : '❌';
-      const cls = r.correct ? 'correct' : 'wrong';
-      const ua = escapeHtml(r.user_answer || '(trống)');
-      const ca = escapeHtml(r.correct_answer || '');
-      const extra = !r.correct ? '<span style="color:var(--ex-success)"> → Đáp án: ' + ca + '</span>' : '';
-      return '<div class="result-item">' +
-        '<span class="result-item__icon ' + cls + '">' + icon + '</span>' +
-        '<span class="result-item__text">Câu ' + (r.index + 1) + ': <strong>' + ua + '</strong>' + extra + '</span>' +
-        '</div>';
-    }).join('');
-
-    // Highlight correct/wrong on question
-    results.forEach((r) => {
-      if (r.type === 'single_choice' || r.type === 'multiple_response') {
-        document.querySelectorAll(`.exam-option[data-idx="${r.index}"]`).forEach((el) => {
-          if (r.correct && el.dataset.label && r.correct_answer.includes(el.dataset.label)) {
-            el.classList.add('is-correct');
-          }
-          if (!r.correct && el.dataset.label && el.classList.contains('is-selected')) {
-            el.classList.add('is-wrong');
-          }
-        });
-      }
-    });
-
     $('modal-result').hidden = false;
-    $('btn-close-result').addEventListener('click', () => {
-      $('modal-result').hidden = true;
-    }, { once: true });
   }
 
-  // ── Nav buttons ──
-  $('btn-prev').addEventListener('click', () => goTo(currentIdx - 1));
-  $('btn-next').addEventListener('click', () => goTo(currentIdx + 1));
+  function getCSRF() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value
+      || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+  }
 
-  // ── Keyboard nav ──
-  document.addEventListener('keydown', (e) => {
-    if (submitted) return;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goTo(currentIdx + 1);
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goTo(currentIdx - 1);
-  });
-
-  // ── Link modal ──
-  $('modal-link-close')?.addEventListener('click', () => {
-    $('modal-link').hidden = true;
-  });
-
-  // ── Init ──
-  renderAll();
+  // Init
+  renderQuestion(questions[0], 0);
 });
-
-// ── CSRF helper ──
-function getCSRF() {
-  return document.querySelector('[name=csrfmiddlewaretoken]')?.value
-    || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
-}

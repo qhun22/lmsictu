@@ -519,9 +519,19 @@ def api_submit_exam(request, code):
                     correct += 1
                 results.append({'index': i, 'type': qtype, 'correct': is_correct, 'user_answer': user_ans_raw, 'correct_answer': correct_ans})
                 continue
-            correct_ans = q.get('drag_sentences', [{}])[0].get('answer', '') if q.get('drag_sentences') else ''
-            user_clean = str(user_ans_raw).strip().lower()
-            is_correct = user_clean == correct_ans.lower()
+            sentences = q.get('drag_sentences') or []
+            if len(sentences) > 1:
+                user_sentences = user_ans_raw if isinstance(user_ans_raw, dict) else {}
+                is_correct = bool(sentences) and all(
+                    str(user_sentences.get(str(sentence_index), '')).strip().lower()
+                    == str(sentence.get('answer') or '').strip().lower()
+                    for sentence_index, sentence in enumerate(sentences)
+                )
+                correct_ans = ';'.join(str(sentence.get('answer') or '') for sentence in sentences)
+            else:
+                correct_ans = sentences[0].get('answer', '') if sentences else ''
+                user_clean = str(user_ans_raw).strip().lower()
+                is_correct = user_clean == correct_ans.lower()
 
         if is_correct:
             correct += 1
