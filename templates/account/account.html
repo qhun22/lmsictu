@@ -1,27 +1,180 @@
-{% extends 'account/base.html' %} {% load static %} {% block title %}{{
-page_title }}{% endblock %} {% block content %}
-<main class="auth">
-  <div class="auth__card auth__card--wide">
-    <header class="auth__header">
-      <div class="auth__brand">
-        <img
-          src="{% static 'assets/img/435325.png' %}"
-          alt="User avatar"
-          class="auth__brand-image"
-        />
-      </div>
-      <h1 class="auth__title" id="account-title">
-        Xin chào, {{ request.user.username }}!
-      </h1>
-      <p class="auth__subtitle">Bạn đã đăng nhập thành công.</p>
-    </header>
+{% extends 'account/base.html' %} {% load static %} {% block title %}PROFILE |
+QHUN22{% endblock %} {% block content %}
+<main class="auth auth--account">
+  <div class="account-layout">
+    <section class="auth__card account-panel">
+      <header class="account-panel__header">
+        <h1 class="account-panel__title">Thông Tin Tài Khoản</h1>
+      </header>
+      <dl class="account-details">
+        <div class="account-detail">
+          <dt>Tên Đăng Nhập</dt>
+          <dd>{{ request.user.username }}</dd>
+        </div>
+        <div class="account-detail">
+          <dt>Địa Chỉ E-Mail</dt>
+          <dd>{{ request.user.email|default:'Chưa cập nhật' }}</dd>
+        </div>
+        <div class="account-detail">
+          <dt>Ngày Đăng Ký</dt>
+          <dd>{{ request.user.date_joined|date:'Y-m-d H:i:s' }}</dd>
+        </div>
+        <div class="account-detail">
+          <dt>Ngày Cập Nhật</dt>
+          <dd>{{ account_profile.updated_at|date:'Y-m-d H:i:s' }}</dd>
+        </div>
+      </dl>
+    </section>
 
-    <div class="auth__actions">
-      <a href="{% url 'home' %}" class="auth__button auth__button--secondary"
-        >Về trang chủ</a
-      >
-      <a href="{% url 'logout' %}" class="auth__button">Đăng xuất</a>
-    </div>
+    <section class="auth__card account-panel">
+      <header class="account-panel__header">
+        <h2 class="account-panel__title">Thay Đổi Mật Khẩu</h2>
+      </header>
+      <form method="post" class="auth__form account-password-form" novalidate>
+        {% csrf_token %} {{ password_form.non_field_errors }}
+        <div class="auth__field">
+          <label
+            class="auth__label"
+            for="{{ password_form.old_password.id_for_label }}"
+            >{{ password_form.old_password.label }}</label
+          >
+          <div class="auth__input-wrapper">
+            {{ password_form.old_password }}
+            <button
+              type="button"
+              class="auth__toggle-password js-toggle-password"
+              data-target="{{ password_form.old_password.id_for_label }}"
+              aria-label="Hiện mật khẩu"
+              aria-pressed="false"
+              title="Hiện mật khẩu"
+              tabindex="-1"
+            >
+              <svg
+                data-icon="eye"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" /></svg
+              ><svg
+                data-icon="eye-off"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+                style="display: none"
+              >
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                <path
+                  d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"
+                />
+                <line x1="2" y1="2" x2="22" y2="22" />
+              </svg>
+            </button>
+          </div>
+          {{ password_form.old_password.errors }}
+        </div>
+        <div class="auth__field">
+          <label
+            class="auth__label"
+            for="{{ password_form.new_password1.id_for_label }}"
+            >{{ password_form.new_password1.label }}</label
+          >
+          <div class="auth__input-wrapper">
+            {{ password_form.new_password1 }}
+            <button
+              type="button"
+              class="auth__toggle-password js-toggle-password"
+              data-target="{{ password_form.new_password1.id_for_label }}"
+              aria-label="Hiện mật khẩu"
+              aria-pressed="false"
+              title="Hiện mật khẩu"
+              tabindex="-1"
+            >
+              <svg
+                data-icon="eye"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" /></svg
+              ><svg
+                data-icon="eye-off"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+                style="display: none"
+              >
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                <path
+                  d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"
+                />
+                <line x1="2" y1="2" x2="22" y2="22" />
+              </svg>
+            </button>
+          </div>
+          {{ password_form.new_password1.errors }}
+        </div>
+        <div class="auth__field">
+          <label
+            class="auth__label"
+            for="{{ password_form.new_password2.id_for_label }}"
+            >{{ password_form.new_password2.label }}</label
+          >
+          <div class="auth__input-wrapper">
+            {{ password_form.new_password2 }}
+            <button
+              type="button"
+              class="auth__toggle-password js-toggle-password"
+              data-target="{{ password_form.new_password2.id_for_label }}"
+              aria-label="Hiện mật khẩu"
+              aria-pressed="false"
+              title="Hiện mật khẩu"
+              tabindex="-1"
+            >
+              <svg
+                data-icon="eye"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" /></svg
+              ><svg
+                data-icon="eye-off"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+                style="display: none"
+              >
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                <path
+                  d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"
+                />
+                <line x1="2" y1="2" x2="22" y2="22" />
+              </svg>
+            </button>
+          </div>
+          {{ password_form.new_password2.errors }}
+        </div>
+        <button type="submit" class="auth__button">Đổi Mật Khẩu</button>
+      </form>
+    </section>
   </div>
 </main>
+{% endblock %} {% block extra_js %}
+<script src="{% static 'assets/js/account.js' %}?v=20260820-1"></script>
 {% endblock %}

@@ -1,6 +1,9 @@
 import json
+from urllib.parse import urlencode
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import JsonResponse
@@ -121,7 +124,9 @@ def _resolve_redirect_target(next_url):
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('home')
+        return redirect(_resolve_redirect_target(request.GET.get('next') or 'home'))
+
+    next_url = request.POST.get('next') or request.GET.get('next') or ''
 
     if request.method == 'POST':
         username = request.POST.get('username', '').strip().lower()
@@ -151,8 +156,7 @@ def login_view(request):
             login(request, user)
             messages.success(request, 'Đăng nhập thành công.')
             request.session['just_logged_in'] = True  # đánh dấu vừa đăng nhập
-            next_url = request.POST.get('next') or request.GET.get('next') or 'home'
-            target = _resolve_redirect_target(next_url)
+            target = _resolve_redirect_target(next_url or 'home')
             if _is_ajax(request):
                 return JsonResponse({
                     'success': True,
@@ -165,10 +169,11 @@ def login_view(request):
         if _is_ajax(request):
             return JsonResponse({'success': False, 'message': message}, status=400)
 
-    return render(request, 'account/login.html', {'page_title': 'Đăng nhập'})
+    return render(request, 'account/login.html', {'page_title': 'Đăng nhập', 'next_url': next_url})
 
 
 def register_view(request):
+    next_url = request.POST.get('next') or request.GET.get('next') or ''
     if request.method == 'POST':
         username = request.POST.get('username', '').strip().lower()
         email = request.POST.get('email', '').strip().lower()
@@ -237,11 +242,14 @@ def register_view(request):
 
         user = User.objects.create_user(username=username, email=email, password=password)
         message = 'Tài khoản đã được tạo thành công. Vui lòng đăng nhập.'
+        login_url = reverse('login')
+        if next_url:
+            login_url = f'{login_url}?{urlencode({"next": _resolve_redirect_target(next_url)})}'
         if _is_ajax(request):
-            return JsonResponse({'success': True, 'message': message})
-        return redirect('register')
+            return JsonResponse({'success': True, 'message': message, 'redirect': login_url})
+        return redirect(login_url)
 
-    return render(request, 'account/register.html', {'page_title': 'Đăng ký'})
+    return render(request, 'account/register.html', {'page_title': 'Đăng ký', 'next_url': next_url})
 
 
 def forgot_password_view(request):
@@ -262,7 +270,35 @@ def forgot_password_view(request):
 
 @login_required
 def account_view(request):
-    return render(request, 'account/account.html', {'page_title': 'Tài khoản'})
+    profile, _ = AccountProfile.objects.get_or_create(user=request.user)
+    password_form = PasswordChangeForm(request.user, request.POST or None)
+    password_fields = {
+        'old_password': ('Mật Khẩu Cũ', 'Nhập mật khẩu cũ.', 'current-password'),
+        'new_password1': ('Mật Khẩu Mới', 'Nhập mật khẩu mới.', 'new-password'),
+        'new_password2': ('Xác Nhận Mật Khẩu Mới', 'Nhập lại mật khẩu mới.', 'new-password'),
+    }
+    for name, (label, placeholder, autocomplete) in password_fields.items():
+        password_form.fields[name].label = label
+        password_form.fields[name].widget.attrs.update({
+            'class': 'auth__input auth__input--has-toggle',
+            'placeholder': placeholder,
+            'autocomplete': autocomplete,
+        })
+
+    if request.method == 'POST':
+        if password_form.is_valid():
+            password_form.save()
+            update_session_auth_hash(request, request.user)
+            profile.save(update_fields=['updated_at'])
+            messages.success(request, 'Mật khẩu đã được thay đổi thành công.')
+            return redirect('account')
+        messages.error(request, 'Mật khẩu chưa được thay đổi. Vui lòng kiểm tra lại thông tin.')
+
+    return render(request, 'account/account.html', {
+        'page_title': 'Tài khoản',
+        'password_form': password_form,
+        'account_profile': profile,
+    })
 
 
 def logout_view(request):
@@ -276,7 +312,7 @@ def logout_view(request):
 # ────────────────────────────────────────────────────────────────
 
 import secrets
-from .models import Quiz, Attempt, Subject, Week
+from .models import AccountProfile, Quiz, Attempt, Subject, Week
 
 
 @login_required
@@ -452,6 +488,9 @@ def api_toggle_quiz(request, code):
 
 def exam_page(request, code):
     """Trang làm bài exam — ai cũng vào được."""
+    if not request.user.is_authenticated:
+        next_url = request.get_full_path()
+        return redirect(f'/login/?{urlencode({"next": next_url})}')
     try:
         quiz = Quiz.objects.get(code=code)
     except Quiz.DoesNotExist:

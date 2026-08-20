@@ -161,7 +161,7 @@
 
 .learning-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -357,5 +357,11 @@
 
   .subject-btn-save {
     width: 100%;
+  }
+}
+
+@media (min-width: 681px) and (max-width: 900px) {
+  .learning-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

@@ -26,6 +26,7 @@ page_title }}{% endblock %} {% block extra_css %}
       novalidate
     >
       {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next_url }}" />
 
       <div class="auth__field">
         <label class="auth__label" for="username">Nhập Username</label>
@@ -126,7 +127,11 @@ page_title }}{% endblock %} {% block extra_css %}
 
       <p class="auth__footer">
         Chưa có tài khoản?
-        <a href="{% url 'register' %}" class="auth__footer-link">Đăng ký.</a>
+        <a
+          href="{% url 'register' %}?next={{ next_url|urlencode }}"
+          class="auth__footer-link"
+          >Đăng ký.</a
+        >
       </p>
     </form>
   </div>

@@ -26,6 +26,7 @@ page_title }}{% endblock %} {% block extra_css %}
       novalidate
     >
       {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next_url }}" />
 
       <div class="auth__form-row">
         <div class="auth__field">
