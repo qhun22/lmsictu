@@ -1757,6 +1757,11 @@ body.tq-popover-open {
   overflow: hidden;
 }
 
+html:has(body.tiao-mon-hoc-body) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 /* ╔══════════════════════════════════════════════════════════════╗
    ║  Lucide icon utility                                         ║
    ║  (tất cả icon trong app dùng `<i data-lucide="...">`,        ║
@@ -1987,6 +1992,8 @@ body.tq-popover-open {
   .right-col {
     padding: 16px;
   }
+  .share-duration-control { flex-wrap: wrap; }
+  .share-duration-control .smh-btn { width: 100%; margin-left: 0; }
 
   /* Stack edit-type thành 2 cột trên mobile */
   .tq-edit-type--five {
@@ -2136,3 +2143,10 @@ body.tq-popover-open {
   background: rgba(168, 85, 247, 0.12);
   color: #7e22ce;
 }
+
+.share-duration-row { display: grid; gap: 8px; margin: 12px 0 16px; padding: 12px; border: 1px solid var(--s-border); border-radius: 10px; background: var(--s-bg); color: var(--s-text); font-size: 0.86rem; font-weight: 700; }
+.share-duration-control { display: flex; align-items: center; gap: 8px; }
+.share-duration-control input { width: 78px; padding: 9px 8px; border: 1px solid var(--s-border); border-radius: 8px; color: var(--s-text); font: inherit; text-align: center; background: #fff; }
+.share-duration-control input:focus { outline: 2px solid rgba(45, 138, 247, 0.2); border-color: var(--s-accent); }
+.share-duration-control span { color: var(--s-text-muted); font-size: 0.72rem; font-weight: 500; }
+.share-duration-control .smh-btn { margin-left: auto; min-height: 36px; padding: 7px 10px; }

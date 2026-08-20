@@ -5,6 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.utils.html import escape
+from django.utils import timezone
 from django.urls import NoReverseMatch, reverse
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
@@ -23,7 +25,31 @@ def tao_mon_hoc(request):
 @login_required
 def tao_de(request):
     """Trang tạo đề trắc nghiệm — upload Word."""
-    return render(request, 'tao-de.html', {'page_title': 'Tạo đề trắc nghiệm'})
+    subjects = Subject.objects.filter(creator=request.user).prefetch_related('weeks')
+    initial_subjects = []
+    for subject in subjects:
+        initial_subjects.append({
+            'id': subject.id,
+            'name': subject.name,
+            'weeks': list(subject.weeks.values('id', 'name', 'topics', 'link', 'quiz_code', 'active')),
+        })
+    initial_subject_options = ''.join(
+        f'<option value="{escape(subject["name"])}">{escape(subject["name"])}</option>'
+        for subject in initial_subjects
+    )
+    initial_week_options = ''
+    if len(initial_subjects) == 1:
+        initial_week_options = ''.join(
+            f'<option value="{index}">{index + 1}. {escape(week["name"])}</option>'
+            for index, week in enumerate(initial_subjects[0]['weeks'])
+        )
+    return render(request, 'tao-de.html', {
+        'page_title': 'Tạo đề trắc nghiệm',
+        'initial_subjects': initial_subjects,
+        'initial_subject_options': initial_subject_options,
+        'initial_week_options': initial_week_options,
+        'initial_subjects_json': json.dumps(initial_subjects),
+    })
 
 
 @login_required
@@ -263,6 +289,9 @@ def api_save_quiz(request):
         questions = data.get('questions', [])
         subject = data.get('subject', '').strip()
         title = data.get('title', '').strip()
+        duration_seconds = int(data.get('duration_seconds', 1800))
+        if not 60 <= duration_seconds <= 86400:
+            raise ValueError('Thời gian làm bài phải từ 01:00 đến 24:00:00.')
         week_index_raw = data.get('week_index', '')
         week_index = int(week_index_raw) if str(week_index_raw).strip() != '' else None
 
@@ -293,6 +322,7 @@ def api_save_quiz(request):
             is_active=True,
             creator=request.user if request.user.is_authenticated else None,
             questions=questions,
+            duration_seconds=duration_seconds,
         )
 
         if subject and week_index is not None:
@@ -313,7 +343,7 @@ def api_save_quiz(request):
             'link': link,
             'quiz_id': quiz.id,
         })
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({'success': False, 'message': 'Dữ liệu không hợp lệ.'}, status=400)
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
@@ -367,6 +397,12 @@ def api_update_quiz(request, code):
         if 'title' in data:
             quiz.title = str(data['title']).strip()
             update_fields.append('title')
+        if 'duration_seconds' in data:
+            duration_seconds = int(data['duration_seconds'])
+            if not 60 <= duration_seconds <= 86400:
+                raise ValueError('Thời gian làm bài phải từ 01:00 đến 24:00:00.')
+            quiz.duration_seconds = duration_seconds
+            update_fields.append('duration_seconds')
         if update_fields:
             quiz.save(update_fields=update_fields)
         if quiz.subject and quiz.week_index is not None:
@@ -379,7 +415,7 @@ def api_update_quiz(request, code):
                 week[0].quiz_code = quiz.code
                 week[0].save(update_fields=['link', 'quiz_code'])
         return JsonResponse({'success': True})
-    except (json.JSONDecodeError, TypeError):
+    except (json.JSONDecodeError, TypeError, ValueError):
         return JsonResponse({'success': False, 'message': 'Dữ liệu không hợp lệ.'}, status=400)
 
 
@@ -396,6 +432,7 @@ def api_quiz_detail(request, code):
         'subject': quiz.subject,
         'week_index': quiz.week_index,
         'is_active': quiz.is_active,
+        'duration_seconds': quiz.duration_seconds,
         'questions': quiz.questions or [],
     })
 
@@ -431,7 +468,43 @@ def exam_page(request, code):
     return render(request, 'exam/exam.html', {
         'quiz': quiz,
         'quiz_json': json.dumps(quiz.questions or []),
+        'quiz_duration_seconds': quiz.duration_seconds,
+        'result_json': 'null',
         'page_title': quiz.title or f'Đề {quiz.code}',
+    })
+
+
+def exam_result_page(request, code, attempt_id):
+    """Render a submitted attempt so refresh keeps the user on the result page."""
+    try:
+        attempt = Attempt.objects.select_related('quiz', 'user').get(
+            id=attempt_id,
+            quiz__code=code,
+        )
+    except Attempt.DoesNotExist:
+        return render(request, 'exam/error.html', {
+            'message': 'Không tìm thấy kết quả bài làm.',
+        }, status=404)
+
+    same_user = attempt.user_id and request.user.is_authenticated and attempt.user_id == request.user.id
+    same_session = attempt.session_key and attempt.session_key == request.session.session_key
+    if not (same_user or same_session):
+        return render(request, 'exam/error.html', {
+            'message': 'Bạn không có quyền xem kết quả bài làm này.',
+        }, status=403)
+
+    return render(request, 'exam/exam.html', {
+        'quiz': attempt.quiz,
+        'quiz_json': json.dumps(attempt.quiz.questions or []),
+        'quiz_duration_seconds': attempt.quiz.duration_seconds,
+        'result_json': json.dumps({
+            'success': True,
+            'score': attempt.score,
+            'correct': sum(1 for result in attempt.results if result.get('correct')),
+            'total': attempt.total,
+            'results': attempt.results,
+        }),
+        'page_title': f'Kết quả - {attempt.quiz.title or attempt.quiz.code}',
     })
 
 
@@ -475,25 +548,39 @@ def api_submit_exam(request, code):
                 is_correct = bool(statement_results) and all(statement_results)
                 correct_ans = ','.join(statement.get('answer') or '' for statement in statements)
             else:
-                correct_ans = str(q.get('answer', '') or '').lower()
+                correct_options = q.get('correct_options') or []
+                if correct_options:
+                    correct_option = correct_options[0]
+                    correct_text = str(correct_option.get('text', '')).lower()
+                    correct_label = str(correct_option.get('label', '')).upper()
+                    correct_ans = 'true' if correct_label == 'A' or 'đúng' in correct_text else 'false'
+                else:
+                    correct_ans = str(q.get('answer', '') or '').lower()
                 user_clean = str(user_ans_raw).lower()
                 is_correct = user_clean == correct_ans
 
         elif qtype in ('single_choice', 'multiple_response'):
             correct_opts = [o.get('label', '') for o in q.get('correct_options', [])]
             correct_ans = ','.join(correct_opts)
-            is_correct = user_ans_raw.upper() in [o.upper() for o in correct_opts]
+            if qtype == 'multiple_response':
+                selected_opts = user_ans_raw if isinstance(user_ans_raw, list) else [user_ans_raw]
+                is_correct = {str(label).upper() for label in selected_opts} == {
+                    str(label).upper() for label in correct_opts
+                }
+            else:
+                selected_opt = user_ans_raw[0] if isinstance(user_ans_raw, list) and user_ans_raw else user_ans_raw
+                is_correct = str(selected_opt).upper() in [str(o).upper() for o in correct_opts]
 
         elif qtype == 'ordering':
             statements = q.get('statements') or []
             if statements:
                 user_answers = user_ans_raw if isinstance(user_ans_raw, dict) else {}
-                results = []
+                statement_results = []
                 for statement_index, statement in enumerate(statements):
                     expected = '|'.join(statement.get('ordering_sequence') or []).upper()
                     actual = str(user_answers.get(str(statement_index), '')).upper()
-                    results.append(actual == expected)
-                is_correct = bool(results) and all(results)
+                    statement_results.append(actual == expected)
+                is_correct = bool(statement_results) and all(statement_results)
                 correct_ans = ';'.join('|'.join(statement.get('ordering_sequence') or []) for statement in statements)
             else:
                 seq = q.get('ordering_sequence', [])
@@ -546,14 +633,19 @@ def api_submit_exam(request, code):
 
     score = round(correct / total * 10, 1) if total > 0 else 0
 
+    if not request.session.session_key:
+        request.session.create()
+
     # Lưu attempt
-    Attempt.objects.create(
+    attempt = Attempt.objects.create(
         quiz=quiz,
-        session_key=request.session.session_key or '',
+        session_key=request.session.session_key,
         user=request.user if request.user.is_authenticated else None,
         answers=answers,
+        results=results,
         score=score,
         total=total,
+        submitted_at=timezone.now(),
     )
 
     return JsonResponse({
@@ -562,6 +654,7 @@ def api_submit_exam(request, code):
         'correct': correct,
         'total': total,
         'results': results,
+        'result_url': request.build_absolute_uri(f'/result/{quiz.code}/{attempt.id}/'),
     })
 
 

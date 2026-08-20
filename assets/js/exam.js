@@ -17,14 +17,20 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentIdx = 0;
   let answers = {};
   let submitted = false;
-  let elapsedSeconds = 0;
+  let submitting = false;
+  let remainingSeconds = Number(window.__QUIZ_DURATION__) || 1800;
+
+  function formatTimer(seconds) {
+    return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  }
+
+  $('exam-timer').textContent = formatTimer(remainingSeconds);
 
   const timer = setInterval(() => {
     if (submitted) return;
-    elapsedSeconds += 1;
-    const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
-    const seconds = String(elapsedSeconds % 60).padStart(2, '0');
-    $('exam-timer').textContent = `${minutes}:${seconds}`;
+    remainingSeconds = Math.max(0, remainingSeconds - 1);
+    $('exam-timer').textContent = formatTimer(remainingSeconds);
+    if (remainingSeconds === 0 && !submitting) submitExam(true);
   }, 1000);
 
   // Helpers
@@ -417,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dot.dataset.question = i + 1;
       dot.setAttribute('aria-label', `Đi tới câu ${i + 1}`);
       if (i === currentIdx) dot.classList.add('current');
-      if (answers[i] !== undefined) dot.classList.add('answered');
+      if (!isAnswerEmpty(questions[i], answers[i])) dot.classList.add('answered');
       dot.addEventListener('click', () => goTo(i));
       dots.appendChild(dot);
       if (i === currentIdx) currentDot = dot;
@@ -433,7 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
         drawerQuestion.className = 'drawer-question';
         drawerQuestion.textContent = `Câu ${i + 1}`;
         if (i === currentIdx) drawerQuestion.classList.add('is-current');
-        if (answers[i] !== undefined) drawerQuestion.classList.add('is-answered');
+        if (!isAnswerEmpty(questions[i], answers[i])) drawerQuestion.classList.add('is-answered');
         drawerQuestion.addEventListener('click', () => {
           goTo(i);
           closeQuestionDrawer();
@@ -455,15 +461,57 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $('btn-next').addEventListener('click', () => goTo(currentIdx + 1));
   $('btn-submit').addEventListener('click', () => {
-    $('modal-answered').textContent = Object.keys(answers).length;
-    $('modal-submit').hidden = false;
+    if (submitted) {
+      window.location.href = `/e/${quizCode}/`;
+      return;
+    }
+    const unanswered = questions
+      .map((question, index) => isAnswerEmpty(question, answers[index]) ? index + 1 : null)
+      .filter(Boolean);
+    if (unanswered.length) {
+      const questionList = unanswered.map(index => `Câu ${index}`).join(', ');
+      if (typeof window.showToast === 'function') {
+        window.showToast({
+          type: 'error',
+          title: 'Chưa hoàn thành bài',
+          message: `Bạn chưa làm đầy đủ. Vui lòng kiểm tra lại: ${questionList}.`,
+          duration: 5500,
+        });
+      } else {
+        alert(`Bạn chưa làm đầy đủ. Vui lòng kiểm tra lại: ${questionList}.`);
+      }
+      updateNav();
+      return;
+    }
+    submitExam();
   });
   $('modal-cancel').addEventListener('click', () => $('modal-submit').hidden = true);
   $('modal-submit').addEventListener('click', e => {
     if (e.target === $('modal-submit')) $('modal-submit').hidden = true;
   });
   $('modal-confirm').addEventListener('click', submitExam);
-  $('btn-close-result').addEventListener('click', () => $('modal-result').hidden = true);
+
+  function isAnswerEmpty(question, answer) {
+    if (answer === undefined || answer === null) return true;
+    if (typeof answer === 'string') return !answer.trim();
+    if (Array.isArray(answer)) return answer.length === 0;
+    if (typeof answer === 'object') {
+      const expectedCount = question.type === 'true_false'
+        ? (question.statements?.length || 1)
+        : question.type === 'ordering'
+          ? (question.statements?.length || 1)
+          : question.type === 'drag_into_text'
+            ? (question.drag_sentences?.length || 1)
+            : question.type === 'drag_into_groups'
+              ? (question.drag_groups?.length || 1)
+              : 1;
+      return Object.values(answer).filter(value => {
+        if (Array.isArray(value)) return value.length > 0;
+        return value !== undefined && value !== null && String(value).trim() !== '';
+      }).length < expectedCount;
+    }
+    return false;
+  }
 
   $('question-drawer-close').addEventListener('click', closeQuestionDrawer);
   $('question-drawer-backdrop').addEventListener('click', closeQuestionDrawer);
@@ -496,9 +544,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Submit
-  async function submitExam() {
+  async function submitExam(forceSubmit = false) {
+    if (submitting || submitted) return;
+    submitting = true;
     $('modal-submit').hidden = true;
     $('btn-submit').disabled = true;
+    if (forceSubmit) $('exam-timer').textContent = '00:00';
 
     try {
       const res = await fetch(`/api/submit-exam/${quizCode}/`, {
@@ -510,39 +561,326 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (data.success) {
         submitted = true;
-        showResults(data);
+        window.location.href = data.result_url;
       } else {
         alert(data.message || 'Lỗi khi nộp bài.');
+        submitting = false;
         $('btn-submit').disabled = false;
       }
     } catch {
       alert('Lỗi kết nối. Vui lòng thử lại.');
+      submitting = false;
       $('btn-submit').disabled = false;
     }
   }
 
-  // Show results
+  // Replace the exam view with a full answer review after submission.
   function showResults(data) {
-    const { score, correct, total } = data;
+    const total = questions.length;
+    const results = questions.map((question, index) => {
+      const savedResult = data.results.find(item => item.index === index) || {};
+      return { ...savedResult, correct: calculateResultCorrect(question, savedResult) };
+    });
+    const correct = results.filter(result => result.correct).length;
+    const card = $('question-card');
+    card.classList.add('is-result');
+    card.innerHTML = '';
 
-    $('result-score').textContent = score;
-    $('result-detail').textContent = `Đúng ${correct} / ${total} câu`;
+    const summary = document.createElement('div');
+    summary.className = 'result-summary';
+    summary.innerHTML = `<span class="result-summary-title">Kết quả bài làm</span><span class="result-summary-score">${correct}/${total} câu đúng</span>`;
+    card.appendChild(summary);
 
-    if (score >= 8) {
-      $('result-icon').textContent = '🏆';
-      $('result-title').textContent = 'Xuất sắc!';
-    } else if (score >= 6) {
-      $('result-icon').textContent = '👏';
-      $('result-title').textContent = 'Tốt lắm!';
-    } else if (score >= 4) {
-      $('result-icon').textContent = '💪';
-      $('result-title').textContent = 'Cố gắng hơn!';
-    } else {
-      $('result-icon').textContent = '📚';
-      $('result-title').textContent = 'Cần ôn tập thêm';
+    questions.forEach((question, index) => {
+      const result = results.find(item => item.index === index) || {};
+      const review = document.createElement('section');
+      review.className = 'result-question';
+
+      const title = document.createElement('div');
+      title.className = 'result-question-title';
+      title.textContent = `Câu ${index + 1} ${result.correct ? '· Đúng' : '· Sai'}`;
+      title.style.color = result.correct ? 'var(--ex-success)' : 'var(--ex-error)';
+      review.appendChild(title);
+
+      const text = document.createElement('p');
+      text.className = 'result-question-text';
+      text.textContent = question.text || 'Câu hỏi';
+      review.appendChild(text);
+
+      if (question.type === 'single_choice' || question.type === 'multiple_response') {
+        renderChoiceReview(question, result, review);
+      } else if (question.type === 'true_false') {
+        renderTrueFalseReview(question, result, review);
+      } else if (question.type === 'ordering') {
+        renderOrderingReview(question, result, review);
+      } else if (question.type === 'drag_into_text') {
+        renderDragTextReview(question, result, review);
+      } else if (question.type === 'drag_into_groups') {
+        renderDragGroupsReview(question, result, review);
+      } else if (question.type === 'fill_in_blank') {
+        renderFillReview(question, result, review);
+      } else {
+        const answer = document.createElement('div');
+        answer.className = `result-free-answer ${result.correct ? 'is-correct' : 'is-wrong'}`;
+        answer.innerHTML = `<strong>Đáp án bạn chọn:</strong><span>${esc(formatAnswer(result.user_answer))}</span><strong>Đáp án đúng:</strong><span>${esc(formatAnswer(result.correct_answer))}</span>`;
+        review.appendChild(answer);
+      }
+      card.appendChild(review);
+    });
+
+    $('exam-timer').textContent = `${correct}/${total} câu đúng`;
+    $('btn-submit').textContent = 'Làm lại';
+    $('btn-submit').disabled = false;
+    $('exam-container')?.classList.add('is-result');
+  }
+
+  function calculateResultCorrect(question, result) {
+    const answer = result.user_answer;
+    const type = question.type;
+    if (type === 'single_choice' || type === 'multiple_response') {
+      const selected = Array.isArray(answer) ? answer : answer ? [answer] : [];
+      const expected = (question.correct_options || []).map(option => String(option.label).toUpperCase());
+      const actual = selected.map(item => String(item).toUpperCase());
+      return type === 'multiple_response'
+        ? actual.length === expected.length && actual.every(item => expected.includes(item))
+        : actual.length === 1 && expected.includes(actual[0]);
     }
+    if (type === 'true_false') {
+      if (!(question.statements || []).length) {
+        return String(answer || '').toLowerCase() === getTrueFalseAnswer(question);
+      }
+      const selected = answer && typeof answer === 'object' ? answer : {};
+      const statements = question.statements || [];
+      return Boolean(statements.length) && statements.every((statement, index) =>
+        String(selected[String(index)] || '').toLowerCase() === String(statement.answer || '').toLowerCase());
+    }
+    if (type === 'ordering') {
+      const selected = answer && typeof answer === 'object' ? answer : {};
+      const statements = question.statements?.length ? question.statements : [{ ordering_sequence: question.ordering_sequence || [] }];
+      return statements.every((statement, index) =>
+        String(selected[String(index)] || '').toUpperCase() === (statement.ordering_sequence || []).join('|').toUpperCase());
+    }
+    if (type === 'fill_in_blank') {
+      return String(answer || '').trim().toLowerCase() === String(question.fill_blank_answer || '').trim().toLowerCase();
+    }
+    if (type === 'drag_into_groups') {
+      const selected = answer && typeof answer === 'object' ? answer : {};
+      return (question.drag_groups || []).every((group, index) =>
+        JSON.stringify([...(selected[String(index)] || [])].sort()) === JSON.stringify([...(group.answers || [])].sort()));
+    }
+    if (type === 'drag_into_text') {
+      const selected = answer && typeof answer === 'object' ? answer : {};
+      return (question.drag_sentences || []).every((sentence, index) =>
+        String(selected[String(index)] || '').trim().toLowerCase() === String(sentence.answer || '').trim().toLowerCase());
+    }
+    return Boolean(result.correct);
+  }
 
-    $('modal-result').hidden = false;
+  function getTrueFalseAnswer(question) {
+    const answer = String(question.answer || '').toLowerCase();
+    if (answer === 'true' || answer === 'false') return answer;
+    const correct = (question.correct_options || [])[0];
+    if (!correct) return '';
+    const text = String(correct.text || '').toLowerCase();
+    return String(correct.label || '').toUpperCase() === 'A' || text.includes('đúng') ? 'true' : 'false';
+  }
+
+  function renderChoiceReview(question, result, review) {
+    const list = document.createElement('div');
+    list.className = 'result-answer-list';
+    const selected = Array.isArray(result.user_answer)
+      ? result.user_answer
+      : result.user_answer ? [result.user_answer] : [];
+    const correct = (question.correct_options || []).map(option => String(option.label));
+
+    (question.options || []).forEach(option => {
+      const label = String(option.label);
+      const isCorrect = correct.some(item => item.toUpperCase() === label.toUpperCase());
+      const isSelected = selected.some(item => String(item).toUpperCase() === label.toUpperCase());
+      const item = document.createElement('div');
+      item.className = 'result-answer-item';
+      if (isCorrect) item.classList.add('correct');
+      else if (isSelected) item.classList.add('wrong');
+      item.innerHTML = `<span class="answer-label">${esc(label)}</span><span class="answer-text">${esc(option.text)}</span>`;
+      if (isCorrect || isSelected) {
+        const state = document.createElement('span');
+        state.className = 'result-answer-state';
+        state.textContent = isCorrect ? 'Đúng' : 'Bạn chọn';
+        item.appendChild(state);
+      }
+      list.appendChild(item);
+    });
+    review.appendChild(list);
+  }
+
+  function createReviewAnswer(text, isCorrect, label) {
+    const item = document.createElement('div');
+    item.className = `result-free-answer ${isCorrect ? 'is-correct' : 'is-wrong'}`;
+    const title = document.createElement('strong');
+    title.textContent = label;
+    const value = document.createElement('span');
+    value.textContent = text || 'Chưa trả lời';
+    item.append(title, value);
+    return item;
+  }
+
+  function renderTrueFalseReview(question, result, review) {
+    if (!(question.statements || []).length) {
+      const expected = getTrueFalseAnswer(question);
+      const actual = String(result.user_answer || '').toLowerCase();
+      const list = document.createElement('div');
+      list.className = 'result-review-grid';
+      const row = document.createElement('div');
+      row.className = 'result-review-row';
+      const label = document.createElement('span');
+      label.className = 'result-review-label';
+      label.textContent = question.text || 'Câu đúng sai';
+      const values = document.createElement('div');
+      values.className = 'result-review-values';
+      values.append(
+        createReviewAnswer(actual === 'true' ? 'Đúng' : actual === 'false' ? 'Sai' : 'Chưa trả lời', actual === expected, 'Bạn chọn'),
+        createReviewAnswer(expected === 'true' ? 'Đúng' : 'Sai', true, 'Đáp án đúng'),
+      );
+      row.append(label, values);
+      list.appendChild(row);
+      review.appendChild(list);
+      return;
+    }
+    const userAnswers = result.user_answer && typeof result.user_answer === 'object' ? result.user_answer : {};
+    const list = document.createElement('div');
+    list.className = 'result-review-grid';
+    (question.statements || []).forEach((statement, index) => {
+      const expected = String(statement.answer || '').toLowerCase();
+      const actual = String(userAnswers[String(index)] || '').toLowerCase();
+      const row = document.createElement('div');
+      row.className = 'result-review-row';
+      row.innerHTML = `<span class="result-review-label">${index + 1}. ${esc(statement.text || '')}</span>`;
+      const values = document.createElement('div');
+      values.className = 'result-review-values';
+      values.append(
+        createReviewAnswer(actual === 'true' ? 'Đúng' : actual === 'false' ? 'Sai' : 'Chưa trả lời', actual === expected, 'Bạn chọn'),
+        createReviewAnswer(expected === 'true' ? 'Đúng' : 'Sai', true, 'Đáp án đúng'),
+      );
+      row.appendChild(values);
+      list.appendChild(row);
+    });
+    review.appendChild(list);
+  }
+
+  function renderOrderingReview(question, result, review) {
+    const userAnswers = result.user_answer && typeof result.user_answer === 'object' ? result.user_answer : {};
+    const statements = question.statements?.length ? question.statements : [{ ordering_sequence: question.ordering_sequence || [] }];
+    const list = document.createElement('div');
+    list.className = 'result-review-grid';
+    statements.forEach((statement, index) => {
+      const expected = (statement.ordering_sequence || []).join(' → ');
+      const actual = String(userAnswers[String(index)] || '').split('|').filter(Boolean).join(' → ');
+      const row = document.createElement('div');
+      row.className = 'result-review-row';
+      row.innerHTML = `<span class="result-review-label">${statements.length > 1 ? `${index + 1}. ` : ''}Thứ tự đáp án</span>`;
+      const values = document.createElement('div');
+      values.className = 'result-review-values';
+      values.append(
+        createReviewAnswer(actual || 'Chưa trả lời', actual === expected, 'Bạn sắp xếp'),
+        createReviewAnswer(expected || 'Chưa có đáp án', true, 'Thứ tự đúng'),
+      );
+      row.appendChild(values);
+      list.appendChild(row);
+    });
+    review.appendChild(list);
+  }
+
+  function renderDragTextReview(question, result, review) {
+    const userAnswers = result.user_answer && typeof result.user_answer === 'object' ? result.user_answer : {};
+    const list = document.createElement('div');
+    list.className = 'result-review-grid';
+    (question.drag_sentences || []).forEach((sentence, index) => {
+      const expected = String(sentence.answer || '');
+      const actual = String(userAnswers[String(index)] || '');
+      const row = document.createElement('div');
+      row.className = 'result-review-row';
+      row.innerHTML = `<span class="result-review-label">${index + 1}. ${esc(sentence.text || '')}</span>`;
+      const values = document.createElement('div');
+      values.className = 'result-review-values';
+      values.append(
+        createReviewAnswer(actual || 'Chưa trả lời', actual.toLowerCase() === expected.toLowerCase(), 'Bạn kéo vào'),
+        createReviewAnswer(expected || 'Chưa có đáp án', true, 'Đáp án đúng'),
+      );
+      row.appendChild(values);
+      list.appendChild(row);
+    });
+    review.appendChild(list);
+  }
+
+  function renderDragGroupsReview(question, result, review) {
+    const userGroups = result.user_answer && typeof result.user_answer === 'object' ? result.user_answer : {};
+    const list = document.createElement('div');
+    list.className = 'result-review-groups';
+    (question.drag_groups || []).forEach((group, index) => {
+      const userItems = userGroups[String(index)] || [];
+      const expectedItems = group.answers || [];
+      const isCorrect = [...userItems].sort().join('|') === [...expectedItems].sort().join('|');
+      const row = document.createElement('div');
+      row.className = `result-group-review ${isCorrect ? 'is-correct' : 'is-wrong'}`;
+      const title = document.createElement('strong');
+      title.textContent = group.label || `Nhóm ${index + 1}`;
+      row.appendChild(title);
+      row.appendChild(createGroupAnswerLine('Bạn chọn', userItems, false));
+      row.appendChild(createGroupAnswerLine('Đáp án đúng', expectedItems, true));
+      list.appendChild(row);
+    });
+    review.appendChild(list);
+  }
+
+  function renderFillReview(question, result, review) {
+    const list = document.createElement('div');
+    list.className = 'result-review-grid';
+    const row = document.createElement('div');
+    row.className = 'result-review-row';
+    const label = document.createElement('span');
+    label.className = 'result-review-label';
+    label.textContent = question.text || 'Điền đáp án vào chỗ trống';
+    const values = document.createElement('div');
+    values.className = 'result-review-values';
+    values.append(
+      createReviewAnswer(formatAnswer(result.user_answer), result.correct, 'Bạn điền'),
+      createReviewAnswer(question.fill_blank_answer || result.correct_answer, true, 'Đáp án đúng'),
+    );
+    row.append(label, values);
+    list.appendChild(row);
+    review.appendChild(list);
+  }
+
+  function createGroupAnswerLine(label, answersList, isCorrect) {
+    const line = document.createElement('div');
+    line.className = `result-group-line ${isCorrect ? 'is-correct' : ''}`;
+    const heading = document.createElement('span');
+    heading.className = 'result-group-line-label';
+    heading.textContent = `${label}:`;
+    const chips = document.createElement('div');
+    chips.className = 'result-group-chips';
+    if (answersList.length) {
+      answersList.forEach(answer => {
+        const chip = document.createElement('span');
+        chip.className = 'result-group-chip';
+        chip.textContent = answer;
+        chips.appendChild(chip);
+      });
+    } else {
+      const empty = document.createElement('span');
+      empty.className = 'result-group-empty';
+      empty.textContent = isCorrect ? 'Chưa có đáp án' : 'Chưa trả lời';
+      chips.appendChild(empty);
+    }
+    line.append(heading, chips);
+    return line;
+  }
+
+  function formatAnswer(answer) {
+    if (answer === undefined || answer === null || answer === '') return 'Chưa trả lời';
+    if (Array.isArray(answer)) return answer.join(', ');
+    if (typeof answer === 'object') return Object.values(answer).join(', ');
+    return String(answer);
   }
 
   function getCSRF() {
@@ -551,5 +889,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Init
-  renderQuestion(questions[0], 0);
+  if (window.__RESULT_DATA__) {
+    submitted = true;
+    showResults(window.__RESULT_DATA__);
+  } else {
+    renderQuestion(questions[0], 0);
+  }
 });

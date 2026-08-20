@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/quiz/<str:code>/', views.api_quiz_detail, name='api_quiz_detail'),
     path('api/quiz/<str:code>/toggle/', views.api_toggle_quiz, name='api_toggle_quiz'),
     path('e/<str:code>/', views.exam_page, name='exam_page'),
+    path('result/<str:code>/<int:attempt_id>/', views.exam_result_page, name='exam_result_page'),
     path('api/submit-exam/<str:code>/', views.api_submit_exam, name='api_submit_exam'),
     # Subject & Week APIs
     path('api/subjects/', views.api_subjects, name='api_subjects'),

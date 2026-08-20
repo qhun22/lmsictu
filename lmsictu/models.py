@@ -52,6 +52,7 @@ class Quiz(models.Model):
     is_active = models.BooleanField(default=True)
     creator = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     questions = models.JSONField(default=list)  # list of question dicts
+    duration_seconds = models.PositiveIntegerField(default=1800)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -68,6 +69,7 @@ class Attempt(models.Model):
     session_key = models.CharField(max_length=64, blank=True, default='')
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     answers = models.JSONField(default=dict)  # {question_idx: selected_label}
+    results = models.JSONField(default=list)
     score = models.FloatField(null=True, blank=True)
     total = models.IntegerField(default=0)
     started_at = models.DateTimeField(auto_now_add=True)

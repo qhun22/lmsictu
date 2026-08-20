@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
   'use strict';
 
+  document.documentElement.classList.remove('tq-popover-open');
+  document.body.classList.remove('tq-popover-open');
+  document.documentElement.style.overflowY = 'auto';
+  document.body.style.overflowY = 'auto';
+
   const csrfToken = document
     .querySelector('meta[name="csrf-token"]')
     ?.getAttribute('content') || '';
@@ -19,6 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnClear = $('tq-btn-clear');
   const btnShare = $('tq-btn-share');
   const btnAddQuestion = $('tq-btn-add-question');
+  const shareDurationInput = $('share-duration-input');
+  const btnSaveShareDuration = $('btn-save-share-duration');
+  let shareQuizCode = '';
   const listEl = $('tq-list');
   const emptyState = $('tq-empty');
   const countNum = $('tq-count-num');
@@ -74,9 +82,21 @@ document.addEventListener('DOMContentLoaded', () => {
   let questions = [];
   let databaseSubjects = [];
   let databaseWeeks = {};
+  const initialSubjects = Array.isArray(window.__INITIAL_SUBJECTS__) ? window.__INITIAL_SUBJECTS__ : [];
+  databaseSubjects = initialSubjects.map((subject) => subject.name);
+  databaseWeeks = Object.fromEntries(initialSubjects.map((subject) => [
+    subject.name,
+    (subject.weeks || []).map((week) => ({
+      ...week,
+      quizCode: week.quiz_code || null,
+      active: week.active !== false,
+    })),
+  ]));
   let editingQuizCode = new URLSearchParams(window.location.search).get('quiz');
+  shareQuizCode = editingQuizCode || '';
   let editingSubject = '';
   let editingWeekIndex = null;
+  let weekSelectionTouched = false;
 
   // ── Storage helpers (đồng bộ với tao-mon-hoc.js) ──
   function loadSubjects() {
@@ -90,20 +110,32 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadDatabaseSubjects() {
     try {
       const response = await fetch('/api/subjects/', { credentials: 'same-origin' });
-      if (!response.ok) return;
-      const data = await response.json();
-      const weeklyMap = {};
-      for (const subject of data.subjects || []) {
-        const weeksResponse = await fetch(`/api/subject/${subject.id}/weeks/`, { credentials: 'same-origin' });
-        const weeksData = weeksResponse.ok ? await weeksResponse.json() : { weeks: [] };
-        weeklyMap[subject.name] = (weeksData.weeks || []).map((week) => ({
-          ...week,
-          quizCode: week.quiz_code || null,
-          active: week.active !== false,
-        }));
+      if (!response.ok) {
+        if (window.errorToast) window.errorToast('Không tải được môn học', 'Vui lòng đăng nhập lại hoặc tải lại trang.');
+        return;
       }
+      const data = await response.json();
       databaseSubjects = (data.subjects || []).map((subject) => subject.name);
+      databaseWeeks = {};
+      populateSubjects();
+      const weeklyMap = { ...databaseWeeks };
+      for (const subject of data.subjects || []) {
+        try {
+          const weeksResponse = await fetch(`/api/subject/${subject.id}/weeks/`, { credentials: 'same-origin' });
+          if (weeksResponse.ok) {
+            const weeksData = await weeksResponse.json();
+            weeklyMap[subject.name] = (weeksData.weeks || []).map((week) => ({
+              ...week,
+              quizCode: week.quiz_code || null,
+              active: week.active !== false,
+            }));
+          }
+        } catch {
+          // Giữ dữ liệu tuần đã được render từ server nếu API lỗi.
+        }
+      }
       databaseWeeks = weeklyMap;
+      populateSubjects();
     } catch {
       // Dùng cache local nếu API không truy cập được.
     }
@@ -289,11 +321,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   weekSelect.addEventListener('change', () => {
+    weekSelectionTouched = true;
     updateParseButton();
 
     const weeks = loadWeeklyMap()[subjectSelect.value] || [];
     const selectedWeek = weeks[Number(weekSelect.value)];
-    if (!selectedWeek?.quizCode) return;
+    if (!selectedWeek) return;
+    if (!selectedWeek.quizCode) {
+      editingQuizCode = null;
+      shareQuizCode = '';
+      editingSubject = subjectSelect.value;
+      editingWeekIndex = Number(weekSelect.value);
+      questions = [];
+      clearFile();
+      renderQuestions([], []);
+      if (btnShare) {
+        btnShare.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M10 13a5 5 0 0 1 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 1-7.54-.54l-3-3a5 5 0 0 1 7.07 7.07l1.71-1.71"/></svg> Tạo link làm bài';
+      }
+      return;
+    }
     if (editingQuizCode && selectedWeek.quizCode === editingQuizCode) return;
 
     const weekName = selectedWeek.name || `Tuần ${Number(weekSelect.value) + 1}`;
@@ -465,6 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function openShareModal(link) {
     shareLinkInput.value = link;
+    if (shareDurationInput && !shareDurationInput.value) shareDurationInput.value = '30:00';
     modalLink.hidden = false;
     btnCopyLink.classList.remove('is-copied');
     btnCopyLink.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
@@ -487,18 +534,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const endpoint = editingQuizCode
         ? `/api/quiz/${encodeURIComponent(editingQuizCode)}/update/`
         : '/api/save-quiz/';
+      const payload = {
+        questions,
+        subject: subjectName,
+        week_index: weekIndex,
+        title: subjectName || 'Bài thi',
+      };
+      if (!editingQuizCode) payload.duration_seconds = 1800;
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-        body: JSON.stringify({
-          questions: questions,
-          subject: subjectName,
-          week_index: weekIndex,
-          title: subjectName || 'Bài thi',
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
+        shareQuizCode = data.code || editingQuizCode;
+        if (shareDurationInput) shareDurationInput.value = '30:00';
         if (subjectName && weekIndex !== '') {
           try {
             const weeklyMap = loadWeeklyMap();
@@ -527,6 +578,30 @@ document.addEventListener('DOMContentLoaded', () => {
       btnShare.innerHTML = editingQuizCode
         ? 'Lưu thay đổi'
         : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Tạo link làm bài';
+    }
+  });
+
+  btnSaveShareDuration?.addEventListener('click', async () => {
+    const durationSeconds = parseDuration(shareDurationInput?.value);
+    if (!durationSeconds || !shareQuizCode) {
+      if (window.errorToast) window.errorToast('Thời gian không hợp lệ', 'Nhập theo định dạng mm:ss, tối thiểu 01:00.');
+      return;
+    }
+    btnSaveShareDuration.disabled = true;
+    try {
+      const response = await fetch(`/api/quiz/${encodeURIComponent(shareQuizCode)}/update/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        credentials: 'same-origin',
+        body: JSON.stringify({ duration_seconds: durationSeconds }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.message || 'Không thể lưu thời gian.');
+      if (window.successToast) window.successToast('Đã lưu', 'Thời gian làm bài đã được cập nhật.');
+    } catch (error) {
+      if (window.errorToast) window.errorToast('Lỗi lưu thời gian', error.message);
+    } finally {
+      btnSaveShareDuration.disabled = false;
     }
   });
 
@@ -1650,6 +1725,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.message || 'Không thể tải đề');
       questions = Array.isArray(data.questions) ? data.questions : [];
+      if (shareDurationInput) shareDurationInput.value = formatDuration(data.duration_seconds || 1800);
       questions.forEach((question, index) => {
         if (!question.id) question.id = `saved-${editingQuizCode}-${index}`;
       });
@@ -1659,7 +1735,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.week_index != null) {
           editingSubject = data.subject;
           editingWeekIndex = Number(data.week_index);
-          weekSelect.value = String(data.week_index);
+          if (!weekSelectionTouched) weekSelect.value = String(data.week_index);
           updateParseButton();
         }
       }
@@ -1698,6 +1774,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (window.errorToast) window.errorToast('Lỗi lưu đề', error.message);
       return false;
     }
+  }
+
+  function parseDuration(value) {
+    const match = String(value || '').trim().match(/^(\d{1,3}):([0-5]\d)$/);
+    if (!match) return 0;
+    const seconds = Number(match[1]) * 60 + Number(match[2]);
+    return seconds >= 60 && seconds <= 86400 ? seconds : 0;
+  }
+
+  function formatDuration(seconds) {
+    const total = Math.max(60, Number(seconds) || 1800);
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
   }
 
   function saveQuestionSettings() {
@@ -1905,6 +1993,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Init ──
   renderQuestions([], []);
+  populateSubjects();
   loadDatabaseSubjects().finally(() => {
     populateSubjects();
     loadExistingQuiz();

@@ -14,11 +14,15 @@
     />
     <link
       rel="stylesheet"
-      href="{% static 'assets/css/exam.css' %}?v=20260912"
+      href="{% static 'assets/css/exam.css' %}?v=20260913"
+    />
+    <link
+      rel="stylesheet"
+      href="{% static 'assets/css/toast.css' %}?v=20260913"
     />
   </head>
   <body>
-    <div class="exam-container">
+    <div class="exam-container" id="exam-container">
       <header class="exam-header">
         <span class="exam-user"
           >{{ request.user.username|default:'Username' }}</span
@@ -107,26 +111,13 @@
       </div>
     </div>
 
-    <!-- Result Modal -->
-    <div class="modal-overlay" id="modal-result" hidden>
-      <div class="modal-box modal-result">
-        <div class="result-icon" id="result-icon"></div>
-        <h2 class="result-title" id="result-title">Kết quả</h2>
-        <div class="result-score">
-          <span class="score-num" id="result-score">0</span>
-          <span class="score-max">/ 10</span>
-        </div>
-        <p class="result-detail" id="result-detail"></p>
-        <button type="button" class="btn-confirm" id="btn-close-result">
-          Đóng
-        </button>
-      </div>
-    </div>
-
     <script>
       window.__QUIZ_DATA__ = {{ quiz_json|safe }};
       window.__QUIZ_CODE__ = '{{ quiz.code }}';
+      window.__QUIZ_DURATION__ = {{ quiz_duration_seconds|default:1800 }};
+      window.__RESULT_DATA__ = {{ result_json|default:'null'|safe }};
     </script>
-    <script src="{% static 'assets/js/exam.js' %}?v=20260907"></script>
+    <script src="{% static 'assets/js/toast.js' %}?v=20260912"></script>
+    <script src="{% static 'assets/js/exam.js' %}?v=20260915"></script>
   </body>
 </html>
